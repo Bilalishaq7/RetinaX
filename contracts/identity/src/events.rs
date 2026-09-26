@@ -10,58 +10,83 @@ use soroban_sdk::{contracttype, symbol_short, Address, Env};
 
 // ── Event payloads ───────────────────────────────────────────────────────────
 
-/// Fired when an identity owner is activated or deactivated.
+/// Event payload emitted when an identity owner status is changed (activated or deactivated).
+/// Topic: `("STREAM", "ID_STAT")`
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OwnerStatusChangedEvent {
+    /// The owner address whose status changed.
     pub owner: Address,
+    /// Whether the owner address is active (`true`) or deactivated (`false`).
     pub active: bool,
+    /// Ledger timestamp when the status changed.
     pub timestamp: u64,
 }
 
-/// Fired when a guardian is added or removed.
+/// Event payload emitted when a guardian is added to or removed from an identity.
+/// Topic: `("STREAM", "ID_GUARD")`
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GuardianChangedEvent {
+    /// The identity owner whose guardian set was modified.
     pub owner: Address,
+    /// The address of the guardian added or removed.
     pub guardian: Address,
+    /// `true` if the guardian was added; `false` if removed.
     pub added: bool,
+    /// Ledger timestamp when the guardian change occurred.
     pub timestamp: u64,
 }
 
-/// Fired when a recovery process is initiated.
+/// Event payload emitted when a social recovery process is initiated by a guardian.
+/// Topic: `("STREAM", "ID_RINIT")`
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecoveryInitiatedEvent {
+    /// The owner address whose identity recovery is initiated.
     pub owner: Address,
+    /// The proposed new address to receive identity ownership upon completion.
     pub new_address: Address,
+    /// The guardian address that initiated the recovery proposal.
     pub initiated_by: Address,
+    /// Ledger timestamp when the recovery was initiated.
     pub timestamp: u64,
 }
 
-/// Fired when a recovery process is executed successfully.
+/// Event payload emitted when a recovery process is successfully executed.
+/// Topic: `("STREAM", "ID_REXEC")`
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecoveryExecutedEvent {
+    /// The old owner address that has been deactivated.
     pub old_address: Address,
+    /// The new owner address that has assumed active ownership.
     pub new_address: Address,
+    /// Ledger timestamp when the recovery was executed.
     pub timestamp: u64,
 }
 
-/// Fired when a recovery process is cancelled.
+/// Event payload emitted when an in-flight recovery process is cancelled by the owner.
+/// Topic: `("STREAM", "ID_RCNCL")`
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecoveryCancelledEvent {
+    /// The owner address who cancelled the active recovery.
     pub owner: Address,
+    /// Ledger timestamp when the recovery was cancelled.
     pub timestamp: u64,
 }
 
-/// Fired when a ZK credential is verified.
+/// Event payload emitted when a ZK credential proof is verified via cross-contract call.
+/// Topic: `("STREAM", "ID_ZKCRD")`
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ZkCredentialVerifiedEvent {
+    /// The user address whose credential was verified.
     pub user: Address,
+    /// `true` if ZK proof verification succeeded; `false` otherwise.
     pub verified: bool,
+    /// Ledger timestamp when the verification took place.
     pub timestamp: u64,
 }
 
