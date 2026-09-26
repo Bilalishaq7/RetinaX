@@ -2,12 +2,12 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use identity::{IdentityContract, IdentityContractClient};
-use zk_verifier::{ZkVerifierContract, ZkVerifierContractClient, ZkAccessHelper};
-use zk_verifier::vk::{G1Point, G2Point, VerificationKey};
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
-    Address, BytesN, Env, Vec, Bytes,
+    Address, Bytes, BytesN, Env, Vec,
 };
+use zk_verifier::vk::{G1Point, G2Point, VerificationKey};
+use zk_verifier::{ZkAccessHelper, ZkVerifierContract, ZkVerifierContractClient};
 
 fn setup_vk(env: &Env) -> VerificationKey {
     // Standard G1 point (1, 2)
@@ -45,7 +45,14 @@ fn setup_vk(env: &Env) -> VerificationKey {
     }
 }
 
-fn setup(env: &Env) -> (IdentityContractClient<'static>, ZkVerifierContractClient<'static>, Address, Address) {
+fn setup(
+    env: &Env,
+) -> (
+    IdentityContractClient<'static>,
+    ZkVerifierContractClient<'static>,
+    Address,
+    Address,
+) {
     env.mock_all_auths();
 
     // Register ZK Verifier
@@ -93,14 +100,14 @@ fn test_zk_proof_verification_integration() {
     let (identity_client, verifier_client, owner, _) = setup(&env);
 
     let resource_id = [1u8; 32];
-    
+
     // Construct a structurally valid proof
     let proof_a = [1u8; 64];
     let proof_b = [1u8; 128];
     let proof_c = [1u8; 64];
     let pi = [1u8; 32];
     let expires_at = env.ledger().timestamp() + 3600;
-    
+
     // Nonce must match verifier's tracker
     let nonce = verifier_client.get_nonce(&owner);
 
@@ -147,7 +154,8 @@ fn test_revocation_path_compromised_key() {
     identity_client.approve_recovery(&g2, &owner);
 
     // Fast forward cooldown
-    env.ledger().set_timestamp(env.ledger().timestamp() + 172_801); // > 48h
+    env.ledger()
+        .set_timestamp(env.ledger().timestamp() + 172_801); // > 48h
 
     // Execute recovery
     let caller = Address::generate(&env);
@@ -155,7 +163,7 @@ fn test_revocation_path_compromised_key() {
 
     // Verify REVOCATION of old key
     assert!(!identity_client.is_owner_active(&owner));
-    
+
     // Verify NEW key is active
     assert!(identity_client.is_owner_active(&new_owner));
 

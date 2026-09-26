@@ -1,7 +1,9 @@
 #![cfg(test)]
 
-use crate::KeyManagerContract;
-use soroban_sdk::{testutils::Address as _, Env}; // adjust path if needed
+use key_manager::{
+    ContractError, KeyLevel, KeyManagerContract, KeyManagerContractClient, KeyPolicy, KeyType,
+};
+use soroban_sdk::{symbol_short, testutils::Address as _, Address, BytesN, Env, Vec};
 
 fn setup_env() -> Env {
     let env = Env::default();

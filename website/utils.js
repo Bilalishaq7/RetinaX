@@ -204,6 +204,33 @@
     return parts.length > 0 ? parts.join(' ') : '0 Mins';
   }
 
+  /**
+   * Truncates a Stellar/Soroban address for display in UI.
+   * Shows first and last N characters with ellipsis in between.
+   * @param {string} address Full Stellar address (typically 56 chars: G... or C...)
+   * @param {number} [prefixLength=6] Number of characters to show at start
+   * @param {number} [suffixLength=4] Number of characters to show at end
+   * @returns {string} Truncated address (e.g., "GCZJM...XKP5" or "CDLZ...9B2A")
+   */
+  function truncateAddress(address, prefixLength = 6, suffixLength = 4) {
+    if (typeof address !== 'string') {
+      return '';
+    }
+
+    if (address.length === 0) {
+      return '';
+    }
+
+    // If address is short enough, no truncation needed
+    if (address.length <= prefixLength + suffixLength) {
+      return address;
+    }
+
+    const prefix = address.substring(0, prefixLength);
+    const suffix = address.substring(address.length - suffixLength);
+    return `${prefix}...${suffix}`;
+  }
+
   return {
     parseDateInput,
     formatDate,
@@ -211,6 +238,7 @@
     formatFHIRDate,
     formatRelativeTime,
     isExpired,
-    formatDuration
+    formatDuration,
+    truncateAddress
   };
 }));

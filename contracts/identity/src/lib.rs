@@ -1,5 +1,16 @@
 #![no_std]
 
+//! # Identity Smart Contract
+//!
+//! Provides decentralized identity management, social recovery mechanisms via M-of-N guardians,
+//! credential binding, and Zero-Knowledge (ZK) credential verification on Soroban / Stellar.
+//!
+//! ## Key Capabilities
+//! - **Social Recovery**: Allows identity owners to configure 3 to 5 guardians and an M-of-N approval threshold.
+//! - **Two-Phase Operations**: Offers prepare/commit/rollback workflows for guardian and threshold modifications.
+//! - **ZK Integration**: Connects with `zk_verifier` smart contract for privacy-preserving proof validation.
+//! - **Credential Binding**: Links off-chain/on-chain credentials to identity addresses.
+
 pub mod credential;
 pub mod events;
 pub mod recovery;

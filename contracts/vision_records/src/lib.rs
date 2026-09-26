@@ -14,6 +14,7 @@ pub mod emergency;
 pub mod errors;
 pub mod events;
 pub mod examination;
+pub mod insurance;
 pub mod patient_profile;
 pub mod prescription;
 pub mod provider;
@@ -53,10 +54,8 @@ pub use examination::{
     EyeExamination, IntraocularPressure, OptFundusPhotography, OptRetinalImaging, OptVisualField,
     SlitLampFindings, VisualAcuity,
 };
-pub use patient_profile::{
-    EmergencyContact, InsuranceInfo, OptionalEmergencyContact, OptionalInsuranceInfo,
-    PatientProfile,
-};
+pub use insurance::{InsuranceInfo, OptionalInsuranceInfo};
+pub use patient_profile::{EmergencyContact, OptionalEmergencyContact, PatientProfile};
 pub use prescription::{LensType, OptionalContactLensData, Prescription, PrescriptionData};
 
 /// Storage keys for the contract
@@ -1997,7 +1996,7 @@ impl VisionRecordsContract {
         patient: Address,
         insurance_info: Option<InsuranceInfo>,
     ) -> Result<(), ContractError> {
-        patient_profile::update_insurance(&env, &caller, &patient, insurance_info)
+        insurance::update_insurance(&env, &caller, &patient, insurance_info)
     }
 
     /// Add medical history reference (IPFS hash or record ID)
@@ -2859,6 +2858,9 @@ mod test_diagnostic_image_metadata;
 
 #[cfg(test)]
 mod test_empty_record;
+
+#[cfg(test)]
+mod test_examination_endpoints;
 
 #[cfg(test)]
 mod test_profile;

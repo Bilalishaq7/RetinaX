@@ -41,6 +41,7 @@ rust-version = "1.78"
 soroban-sdk = "25.0.0"
 proptest = "1"
 proptest-derive = "0.4"
+ethnum = "1.4"
 
 [profile.release]
 opt-level = "z"

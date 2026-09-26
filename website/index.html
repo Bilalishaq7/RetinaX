@@ -213,18 +213,18 @@
         <div class="demo-body">
           <!-- Panel 1: RBAC Access Control -->
           <div class="demo-tab-panel active" id="panel-rbac">
-            <div class="control-panel">
+            <form class="control-panel">
               <h3>Role-Based Access Control (RBAC)</h3>
               <p style="color: var(--text-muted); font-size: 0.9rem;">Simulate patient access permission grants enforced by Soroban <code>require_auth()</code>.</p>
               
               <div class="form-group">
                 <label class="form-label">Patient Stellar Address</label>
-                <input type="text" class="form-input" value="GDC...PATIENT_KEY_99X" readonly>
+                <input type="text" class="form-input" value="GDC...PATIENT_KEY_99X" required>
               </div>
 
               <div class="form-group">
                 <label class="form-label">Target Doctor / Clinic</label>
-                <select class="form-select" id="select-doctor">
+                <select class="form-select" required id="select-doctor">
                   <option value="GAB...DR_SMITH_OPTOMETRY">Dr. Smith Optometry Clinic (Authorized)</option>
                   <option value="GCD...VISION_RESEARCH_LAB">Vision Research Lab (Pending)</option>
                   <option value="GXX...UNAUTHORIZED_THIRD_PARTY">Unauthorized Provider (Block)</option>
@@ -236,8 +236,8 @@
                 <input type="range" class="slider-input" min="1" max="168" value="24" id="dur-slider">
               </div>
 
-              <button class="btn btn-primary" id="btn-grant-access">Execute Soroban Auth</button>
-            </div>
+              <button type="submit" class="btn btn-primary" id="btn-grant-access">Execute Soroban Auth</button>
+            </form>
 
             <div class="code-console">
               <div class="console-header">
@@ -262,7 +262,7 @@ fn grant_access(env: Env, patient: Address, doctor: Address, ttl: u64) {
 
           <!-- Panel 2: ZK Proof -->
           <div class="demo-tab-panel" id="panel-zk">
-            <div class="control-panel">
+            <form class="control-panel">
               <h3>Zero-Knowledge Medical Proof Generator</h3>
               <p style="color: var(--text-muted); font-size: 0.9rem;">Generate a groth16 proof for driver's license visual acuity standards without revealing patient identity.</p>
               
@@ -273,11 +273,11 @@ fn grant_access(env: Env, patient: Address, doctor: Address, ttl: u64) {
 
               <div class="form-group">
                 <label class="form-label">Required Threshold</label>
-                <input type="text" class="form-input" value="Visual Acuity <= 20/40 (Driver Standard)" readonly>
+                <input type="text" class="form-input" value="Visual Acuity <= 20/40 (Driver Standard)" required>
               </div>
 
-              <button class="btn btn-primary" id="btn-gen-zk">Generate Groth16 zk-SNARK</button>
-            </div>
+              <button type="submit" class="btn btn-primary" id="btn-gen-zk">Generate Groth16 zk-SNARK</button>
+            </form>
 
             <div class="code-console">
               <div class="console-header">
@@ -296,20 +296,20 @@ fn grant_access(env: Env, patient: Address, doctor: Address, ttl: u64) {
 
           <!-- Panel 3: AI Oracle -->
           <div class="demo-tab-panel" id="panel-ai">
-            <div class="control-panel">
+            <form class="control-panel">
               <h3>AI Oracle Provider Rotation</h3>
               <p style="color: var(--text-muted); font-size: 0.9rem;">Simulate SLA timeout on the primary oracle node to verify automated failover.</p>
               
               <div class="form-group">
                 <label class="form-label">Primary Oracle Node Status</label>
-                <select class="form-select" id="select-ai-status">
+                <select class="form-select" required id="select-ai-status">
                   <option value="healthy">Primary Oracle (Active — 100% Uptime)</option>
                   <option value="timeout">Primary Oracle Failed (500ms Timeout Exceeded)</option>
                 </select>
               </div>
 
-              <button class="btn btn-primary" id="btn-test-ai">Simulate Diagnostic Request</button>
-            </div>
+              <button type="submit" class="btn btn-primary" id="btn-test-ai">Simulate Diagnostic Request</button>
+            </form>
 
             <div class="code-console">
               <div class="console-header">
@@ -325,20 +325,20 @@ fn grant_access(env: Env, patient: Address, doctor: Address, ttl: u64) {
 
           <!-- Panel 4: FHIR Converter -->
           <div class="demo-tab-panel" id="panel-fhir">
-            <div class="control-panel">
+            <form class="control-panel">
               <h3>FHIR v4 Clinical Record Converter</h3>
               <p style="color: var(--text-muted); font-size: 0.9rem;">Map Soroban contract structs into international FHIR v4 JSON records.</p>
               
               <div class="form-group">
                 <label class="form-label">Record Type</label>
-                <select class="form-select" id="select-fhir-type">
+                <select class="form-select" required id="select-fhir-type">
                   <option value="refraction">Optometric Refraction Exam</option>
                   <option value="iop">Intraocular Pressure (IOP)</option>
                 </select>
               </div>
 
-              <button class="btn btn-primary" id="btn-convert-fhir">Generate FHIR v4 Payload</button>
-            </div>
+              <button type="submit" class="btn btn-primary" id="btn-convert-fhir">Generate FHIR v4 Payload</button>
+            </form>
 
             <div class="code-console">
               <div class="console-header">
@@ -362,17 +362,17 @@ fn grant_access(env: Env, patient: Address, doctor: Address, ttl: u64) {
           </div>
           <!-- Panel 5: Clinical Data Fetching Placeholder -->
           <div class="demo-tab-panel" id="panel-fetch">
-            <div class="control-panel">
+            <form class="control-panel">
               <h3>Clinical Data Retrieval</h3>
               <p style="color: var(--text-muted); font-size: 0.9rem;">Simulate fetching patient data from the decentralized storage network.</p>
               
               <div class="form-group">
                 <label class="form-label">Query Patient CID</label>
-                <input type="text" class="form-input" value="ipfs://QmX9z82...PATIENT_RECORDS" readonly>
+                <input type="text" class="form-input" value="ipfs://QmX9z82...PATIENT_RECORDS" required>
               </div>
 
-              <button class="btn btn-primary" id="btn-fetch-data">Fetch Clinical Data</button>
-            </div>
+              <button type="submit" class="btn btn-primary" id="btn-fetch-data">Fetch Clinical Data</button>
+            </form>
 
             <div class="code-console" style="min-height: 250px;">
               <div class="console-header">

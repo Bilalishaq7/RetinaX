@@ -1,10 +1,13 @@
 #![cfg(test)]
 
-use crate::KeyManagerContract;
+use key_manager::{
+    ContractError, KeyLevel, KeyManagerContract, KeyManagerContractClient, KeyPolicy, KeyType,
+};
 use soroban_sdk::{
+    symbol_short,
     testutils::{Address as _, Ledger},
-    Env,
-}; // adjust if module path differs
+    Address, BytesN, Env, Vec,
+};
 
 fn setup_env() -> Env {
     let env = Env::default();

@@ -127,7 +127,8 @@ function initRBACSimulator() {
   }
 
   if (grantBtn) {
-    grantBtn.addEventListener('click', () => {
+    grantBtn.closest('form').addEventListener('submit', (e) => {
+      e.preventDefault();
       grantBtn.textContent = '⚡ Executing Soroban require_auth()...';
       grantBtn.style.opacity = '0.7';
 
@@ -188,7 +189,8 @@ function initZKSimulator() {
   }
 
   if (genZkBtn) {
-    genZkBtn.addEventListener('click', () => {
+    genZkBtn.closest('form').addEventListener('submit', (e) => {
+      e.preventDefault();
       genZkBtn.textContent = '🛡️ Generating Groth16 Proof...';
 
       setTimeout(() => {
@@ -230,7 +232,8 @@ function initAISimulator() {
   const previewAiCode = document.getElementById('preview-ai-code');
 
   if (testAiBtn) {
-    testAiBtn.addEventListener('click', () => {
+    testAiBtn.closest('form').addEventListener('submit', (e) => {
+      e.preventDefault();
       const status = aiStatusSelect ? aiStatusSelect.value : 'healthy';
 
       testAiBtn.textContent = '🤖 Evaluating Diagnostic Oracles...';
@@ -270,7 +273,8 @@ function initFHIRSimulator() {
   const previewFhirCode = document.getElementById('preview-fhir-code');
 
   if (convertFhirBtn) {
-    convertFhirBtn.addEventListener('click', () => {
+    convertFhirBtn.closest('form').addEventListener('submit', (e) => {
+      e.preventDefault();
       const type = fhirTypeSelect ? fhirTypeSelect.value : 'refraction';
 
       convertFhirBtn.textContent = '🏥 Mapping to FHIR v4 JSON...';
@@ -334,7 +338,8 @@ function initDataFetchSimulator() {
   const fetchStatusIndicator = document.getElementById('fetch-status-indicator');
 
   if (fetchBtn) {
-    fetchBtn.addEventListener('click', () => {
+    fetchBtn.closest('form').addEventListener('submit', (e) => {
+      e.preventDefault();
       // 1. Hide idle and result, show placeholder
       if(fetchIdle) fetchIdle.style.display = 'none';
       if(fetchResult) fetchResult.style.display = 'none';

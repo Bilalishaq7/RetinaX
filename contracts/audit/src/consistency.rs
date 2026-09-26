@@ -252,6 +252,7 @@ fn collect_inner(leaves: &[Digest], n1: usize, n2: usize, proof: &mut Vec<Digest
 /// Instantiate with the full leaf-hash array of the *newer* (larger) snapshot,
 /// then call [`ConsistencyProver::generate`] for any `(root_v1, size_v1)` pair
 /// that was previously published as a checkpoint.
+#[derive(Clone, Debug)]
 pub struct ConsistencyProver {
     /// All leaf hashes in the current (newest) log.
     leaf_hashes: Vec<Digest>,
@@ -314,6 +315,7 @@ impl ConsistencyProver {
 ///
 /// Consumers typically keep one `LogHistory` per segment and add a checkpoint
 /// after every `MerkleLog::publish_root` call.
+#[derive(Clone, Debug)]
 pub struct LogHistory {
     /// Ordered list of (tree_size, root) pairs.
     checkpoints: Vec<(u64, MerkleRoot)>,

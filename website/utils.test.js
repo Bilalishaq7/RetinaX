@@ -40,6 +40,65 @@ test('utils.js — parseDateInput', async (t) => {
   });
 });
 
+test('utils.js — truncateAddress', async (t) => {
+  await t.test('truncates standard Stellar address (56 chars)', () => {
+    const addr = 'GCZJM2KLV4LHX6SQQ3JY4OVKCQH4XLXJXS6QIVTGQXVHXKZXKP5ABCD';
+    const result = RetinaXUtils.truncateAddress(addr);
+    assert.strictEqual(result, 'GCZJM2...ABCD');
+  });
+
+  await t.test('truncates Soroban contract address (56 chars)', () => {
+    const addr = 'CDLZFC3SYJYDZT7K67VZ56P6GDIZ67K67VZ56P6GDIZ67K67VZ9B2A';
+    const result = RetinaXUtils.truncateAddress(addr);
+    assert.strictEqual(result, 'CDLZFC...9B2A');
+  });
+
+  await t.test('uses custom prefix length', () => {
+    const addr = 'GCZJM2KLV4LHX6SQQ3JY4OVKCQH4XLXJXS6QIVTGQXVHXKZXKP5ABCD';
+    const result = RetinaXUtils.truncateAddress(addr, 8, 4);
+    assert.strictEqual(result, 'GCZJM2KL...ABCD');
+  });
+
+  await t.test('uses custom suffix length', () => {
+    const addr = 'GCZJM2KLV4LHX6SQQ3JY4OVKCQH4XLXJXS6QIVTGQXVHXKZXKP5ABCD';
+    const result = RetinaXUtils.truncateAddress(addr, 6, 6);
+    assert.strictEqual(result, 'GCZJM2...P5ABCD');
+  });
+
+  await t.test('does not truncate short addresses', () => {
+    const shortAddr = 'ABC123XYZ';
+    const result = RetinaXUtils.truncateAddress(shortAddr, 6, 4);
+    assert.strictEqual(result, 'ABC123XYZ');
+  });
+
+  await t.test('handles empty string', () => {
+    const result = RetinaXUtils.truncateAddress('');
+    assert.strictEqual(result, '');
+  });
+
+  await t.test('handles non-string input', () => {
+    assert.strictEqual(RetinaXUtils.truncateAddress(null), '');
+    assert.strictEqual(RetinaXUtils.truncateAddress(undefined), '');
+    assert.strictEqual(RetinaXUtils.truncateAddress(12345), '');
+    assert.strictEqual(RetinaXUtils.truncateAddress({}), '');
+  });
+
+  await t.test('handles address exactly at cutoff length', () => {
+    const addr = '0123456789'; // 10 chars, prefix=6, suffix=4
+    const result = RetinaXUtils.truncateAddress(addr, 6, 4);
+    assert.strictEqual(result, '0123456789');
+  });
+
+  await t.test('truncates with zero prefix or suffix', () => {
+    const addr = 'GCZJM2KLV4LHX6SQQ3JY4OVKCQH4XLXJXS6QIVTGQXVHXKZXKP5ABCD';
+    const result1 = RetinaXUtils.truncateAddress(addr, 0, 4);
+    assert.strictEqual(result1, '...ABCD');
+    
+    const result2 = RetinaXUtils.truncateAddress(addr, 6, 0);
+    assert.strictEqual(result2, 'GCZJM2...');
+  });
+});
+
 test('utils.js — formatDate', async (t) => {
   await t.test('formats default YYYY-MM-DD', () => {
     const dateStr = RetinaXUtils.formatDate('2026-09-24T00:00:00Z');

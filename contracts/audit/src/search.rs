@@ -59,7 +59,7 @@ pub type SearchToken = [u8; 32];
 ///
 /// The key must be exactly 32 bytes; using a cryptographically random value is
 /// strongly recommended.  For test use `SearchKey::test_key()`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SearchKey([u8; 32]);
 
 impl SearchKey {
@@ -108,6 +108,7 @@ impl SearchKey {
 ///
 /// Using a `BTreeMap` rather than `HashMap` ensures a deterministic iteration
 /// order, which is important for reproducible test output and serialisation.
+#[derive(Clone, Debug)]
 pub struct ForwardIndex {
     /// token → sorted list of sequence numbers that match.
     index: BTreeMap<SearchToken, Vec<u64>>,
@@ -235,6 +236,7 @@ fn push_nonempty(vec: &mut Vec<alloc::string::String>, s: &str) {
 ///
 /// Maintains the index and exposes `index_entry` / `query` / `purge` without
 /// exposing raw token arithmetic to callers.
+#[derive(Clone, Debug)]
 pub struct SearchEngine {
     key: SearchKey,
     index: ForwardIndex,

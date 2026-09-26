@@ -1,0 +1,166 @@
+name: Identity Contract CI
+
+on:
+  push:
+    paths:
+      - 'contracts/identity/**'
+      - 'contracts/common/**'
+      - 'contracts/zk_verifier/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  pull_request:
+    paths:
+      - 'contracts/identity/**'
+      - 'contracts/common/**'
+      - 'contracts/zk_verifier/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+
+env:
+  RUSTFLAGS: "-D warnings"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    name: Build & Test Identity Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+      
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+      
+      - name: Cache soroban-sdk
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/src/*/soroban-*
+          key: ${{ runner.os }}-soroban-sdk-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      
+      - name: Run clippy
+        run: cargo clippy -p identity -p common -p zk_verifier -- -D warnings
+      
+      - name: Build contract
+        run: cargo build -p identity --target wasm32-unknown-unknown
+      
+      - name: Run unit tests
+        run: cargo test -p identity --lib
+      
+      - name: Run integration tests
+        run: cargo test -p identity --tests
+      
+      - name: Run doc tests
+        run: cargo test -p identity --doc
+      
+      - name: Generate documentation
+        run: cargo doc -p identity --no-deps
+      
+      - name: Verify optimized WASM size
+        run: |
+          cargo build -p identity --target wasm32-unknown-unknown --release
+          SIZE=$(wc -c < target/wasm32-unknown-unknown/release/identity.wasm)
+          echo "WASM size: $SIZE bytes"
+          if [ $SIZE -gt 500000 ]; then
+            echo "::warning::WASM size ($SIZE bytes) exceeds 500KB limit"
+          fi
+
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+      
+      - name: Run cargo audit
+        run: cargo audit -p identity -p common -p zk_verifier
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      
+      - name: Check formatting
+        run: cargo fmt -p identity -p common -p zk_verifier -- --check
+
+  clippy-check:
+    name: Clippy Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      
+      - name: Run clippy
+        run: cargo clippy -p identity -p common -p zk_verifier -- -D warnings
+
+  test-coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      
+      - name: Generate coverage report
+        run: cargo llvm-cov -p identity --lcov --output-path lcov.info
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: lcov.info
+          flags: identity
+          fail_ci_if_error: false

@@ -376,3 +376,54 @@ fn test_empty_allowed_ops_permits_any_operation() {
         .try_use_key(&admin, &key_id, &symbol_short!("AUTH"))
         .is_ok());
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Additional Negative Unit Tests (Error Cases)
+// ─────────────────────────────────────────────────────────────────────────────
+
+#[test]
+fn test_use_key_nonexistent_fails() {
+    let (env, client, admin) = setup();
+    let fake_key_id = BytesN::from_array(&env, &[0x99u8; 32]);
+    let result = client.try_use_key(&admin, &fake_key_id, &symbol_short!("SIGN"));
+    assert_eq!(result, Err(Ok(ContractError::KeyNotFound)));
+}
+
+#[test]
+fn test_invalid_hierarchy_derivation_fails() {
+    let (env, client, admin) = setup();
+    let parent_id = make_key(&env, &client, &admin, unrestricted_policy(&env));
+
+    // Master -> Session is invalid hierarchy (must go Master -> Contract)
+    let result = client.try_derive_key(
+        &admin,
+        &parent_id,
+        &KeyLevel::Session,
+        &0u32,
+        &false,
+        &KeyType::Signing,
+        &unrestricted_policy(&env),
+        &0u64,
+    );
+    assert_eq!(result, Err(Ok(ContractError::InvalidHierarchy)));
+}
+
+#[test]
+fn test_rotate_key_before_interval_fails() {
+    let (env, client, admin) = setup();
+    let key_bytes = BytesN::from_array(&env, &[1u8; 32]);
+
+    // Set rotation_interval to 3600 seconds
+    let key_id = client.create_master_key(
+        &admin,
+        &KeyType::Signing,
+        &unrestricted_policy(&env),
+        &3600u64,
+        &key_bytes,
+    );
+
+    // Attempt immediate rotation
+    let result = client.try_rotate_key(&admin, &key_id);
+    assert_eq!(result, Err(Ok(ContractError::RotationNotDue)));
+}
+
