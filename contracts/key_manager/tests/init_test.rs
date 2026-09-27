@@ -43,7 +43,10 @@ fn test_double_initialization_is_ignored() {
 
     // Call a second time with different parameters - must return AlreadyInitialized error
     let res_init2 = client.try_initialize(&admin_2, &identity_2);
-    assert_eq!(res_init2.unwrap_err().unwrap(), ContractError::AlreadyInitialized);
+    assert_eq!(
+        res_init2.unwrap_err().unwrap(),
+        ContractError::AlreadyInitialized
+    );
 
     // Verify admin 1 is still the admin
     let dummy = Address::generate(&env);
@@ -251,13 +254,8 @@ fn test_initialization_enables_admin_operations_and_blocks_unauthorized() {
     assert_eq!(fail_res.unwrap_err().unwrap(), ContractError::Unauthorized);
 
     // Initialized admin successfully creates master key
-    let ok_res = client.try_create_master_key(
-        &admin,
-        &KeyType::Signing,
-        &policy,
-        &86400,
-        &key_bytes,
-    );
+    let ok_res =
+        client.try_create_master_key(&admin, &KeyType::Signing, &policy, &86400, &key_bytes);
     assert!(ok_res.is_ok());
     let key_id = ok_res.unwrap().unwrap();
     assert!(client.get_key_record(&key_id).is_some());

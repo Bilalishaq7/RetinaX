@@ -1,4 +1,3 @@
-
 /// Validate that a string's length is within the inclusive range [min, max].
 pub fn validate_string_length(s: &String, min: u32, max: u32) -> Result<(), ContractError> {
     let len = s.len();

@@ -440,4 +440,3 @@ impl PoseidonHasher {
         }
     }
 }
-

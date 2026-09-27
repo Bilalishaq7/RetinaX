@@ -292,11 +292,7 @@ fn test_duplicate_register_at_same_timestamp() {
     client.register_resource(&admin, &id, &payload);
 
     // Attempt to register the same id again at the same ledger time.
-    let result = client.try_register_resource(
-        &admin,
-        &id,
-        &Bytes::from_slice(&env, b"second"),
-    );
+    let result = client.try_register_resource(&admin, &id, &Bytes::from_slice(&env, b"second"));
     assert_eq!(result, Err(Ok(FhirError::RecordAlreadyExists.into())));
 }
 

@@ -15,6 +15,21 @@ use soroban_sdk::{
     Address, BytesN, Env, IntoVal, TryFromVal, Val, Vec,
 };
 
+/// Stand-in for the zk_verifier contract that accepts every proof.
+mod mock_verifier {
+    use soroban_sdk::{contract, contractimpl, Env};
+
+    #[contract]
+    pub struct MockVerifier;
+
+    #[contractimpl]
+    impl MockVerifier {
+        pub fn verify_access(_env: Env, _request: zk_verifier::AccessRequest) -> bool {
+            true
+        }
+    }
+}
+
 fn setup() -> (Env, IdentityContractClient<'static>, Address) {
     let env = Env::default();
     env.mock_all_auths();
@@ -212,12 +227,24 @@ fn test_zk_credential_event() {
     let (env, client, owner) = setup();
     client.initialize(&owner);
 
+    let verifier_id = env.register(mock_verifier::MockVerifier, ());
+    client.set_zk_verifier(&owner, &verifier_id);
+
     let user = Address::generate(&env);
     let resource_id = BytesN::from_array(&env, &[5u8; 32]);
-    let proof = soroban_sdk::Bytes::new(&env);
+    let proof_g1 = soroban_sdk::Bytes::from_array(&env, &[1u8; 64]);
+    let proof_g2 = soroban_sdk::Bytes::from_array(&env, &[1u8; 128]);
     let pi = vec![&env, BytesN::from_array(&env, &[0u8; 32])];
 
-    client.verify_zk_credential(&user, &resource_id, &proof, &proof, &proof, &pi, &1000);
+    client.verify_zk_credential(
+        &user,
+        &resource_id,
+        &proof_g1,
+        &proof_g2,
+        &proof_g1,
+        &pi,
+        &1000,
+    );
 
     let expected_topics: Vec<Val> =
         (symbol_short!("STREAM"), symbol_short!("ID_ZKCRD")).into_val(&env);

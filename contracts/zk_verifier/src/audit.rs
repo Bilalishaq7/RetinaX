@@ -254,4 +254,3 @@ impl AuditTrail {
             .publish(("verification", proof_id), (submitter, verified));
     }
 }
-

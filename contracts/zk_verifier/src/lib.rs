@@ -1,3 +1,4 @@
+#![no_std]
 #![allow(dead_code, clippy::manual_inspect, clippy::arithmetic_side_effects)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! # Zero-Knowledge Verifier Smart Contract Module
@@ -34,8 +35,7 @@ pub use crate::vk::{G1Point, G2Point, VerificationKey};
 
 use common::whitelist;
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
-    String, Symbol, Vec,
+    contract, contracterror, contracttype, symbol_short, Address, BytesN, Env, String, Symbol, Vec,
 };
 
 /// Storage key for contract administrator address in instance storage.
@@ -218,7 +218,12 @@ fn validate_level4_attributes(request: &AccessRequest) -> Result<(), ContractErr
     Ok(())
 }
 
-#[contractimpl]
+// With the `library` feature, wasm builds skip the contract entry-point exports
+// so that another contract can link this crate without duplicate symbols.
+#[cfg_attr(
+    any(not(feature = "library"), not(target_family = "wasm")),
+    soroban_sdk::contractimpl
+)]
 impl ZkVerifierContract {
     /// Initializes the contract with an initial administrator address.
     ///
@@ -813,4 +818,3 @@ impl ZkVerifierContract {
         AuditTrail::verify_chain(&env, user, resource_id)
     }
 }
-

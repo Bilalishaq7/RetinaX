@@ -234,4 +234,3 @@ impl MerkleVerifier {
         current_level.get_unchecked(0)
     }
 }
-
