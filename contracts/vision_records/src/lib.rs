@@ -340,7 +340,7 @@ impl VisionRecordsContract {
         );
     }
 
-    fn unauthorized<T>(
+    pub(crate) fn unauthorized<T>(
         env: &Env,
         caller: &Address,
         action: &str,
@@ -350,7 +350,7 @@ impl VisionRecordsContract {
         Err(ContractError::Unauthorized)
     }
 
-    fn access_denied<T>(
+    pub(crate) fn access_denied<T>(
         env: &Env,
         caller: &Address,
         action: &str,
@@ -1340,36 +1340,9 @@ impl VisionRecordsContract {
         fundus_photo: OptFundusPhotography,
         clinical_notes: String,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-
-        let record = Self::get_record(env.clone(), caller.clone(), record_id)?;
-
-        let has_perm = if caller == record.provider {
-            rbac::has_permission(&env, &caller, &Permission::WriteRecord)
-        } else {
-            rbac::has_delegated_permission(
-                &env,
-                &record.provider,
-                &caller,
-                &Permission::WriteRecord,
-            )
-        };
-
-        if !has_perm && !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "add_eye_examination",
-                "permission:WriteRecord_or_SystemAdmin",
-            );
-        }
-
-        if record.record_type != RecordType::Examination {
-            return Err(ContractError::InvalidRecordType);
-        }
-
-        let exam = EyeExamination {
+        examination::add_eye_examination(
+            &env,
+            &caller,
             record_id,
             visual_acuity,
             iop,
@@ -1378,21 +1351,7 @@ impl VisionRecordsContract {
             retina_imaging,
             fundus_photo,
             clinical_notes,
-        };
-
-        examination::set_examination(&env, &exam, &caller);
-
-        audit::AuditManager::log_event(
-            &env,
-            caller.clone(),
-            "examination.add",
-            soroban_sdk::String::from_str(&env, &record_id.to_string()),
-            "ok",
-        );
-
-        events::publish_examination_added(&env, record_id);
-
-        Ok(())
+        )
     }
 
     /// Update eye examination details using optimistic concurrency control (OCC).
@@ -1412,37 +1371,12 @@ impl VisionRecordsContract {
         clinical_notes: String,
         changed_fields: Vec<FieldChange>,
     ) -> Result<UpdateOutcome, ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-
-        let record = Self::get_record(env.clone(), caller.clone(), record_id)?;
-
-        let has_perm = if caller == record.provider {
-            rbac::has_permission(&env, &caller, &Permission::WriteRecord)
-        } else {
-            rbac::has_delegated_permission(
-                &env,
-                &record.provider,
-                &caller,
-                &Permission::WriteRecord,
-            )
-        };
-
-        if !has_perm && !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "update_examination_versioned",
-                "permission:WriteRecord_or_SystemAdmin",
-            );
-        }
-
-        if record.record_type != RecordType::Examination {
-            return Err(ContractError::InvalidRecordType);
-        }
-
-        let exam = EyeExamination {
+        examination::update_examination_versioned(
+            &env,
+            &caller,
             record_id,
+            expected_version,
+            node_id,
             visual_acuity,
             iop,
             slit_lamp,
@@ -1450,18 +1384,8 @@ impl VisionRecordsContract {
             retina_imaging,
             fundus_photo,
             clinical_notes,
-        };
-
-        let outcome = examination::versioned_set_examination(
-            &env,
-            &exam,
-            expected_version,
-            node_id,
-            &caller,
-            &changed_fields,
-        );
-
-        Ok(outcome)
+            changed_fields,
+        )
     }
 
     /// Retrieve eye examination details for a record
@@ -1470,27 +1394,7 @@ impl VisionRecordsContract {
         caller: Address,
         record_id: u64,
     ) -> Result<EyeExamination, ContractError> {
-        caller.require_auth();
-        let record = Self::get_record(env.clone(), caller.clone(), record_id)?;
-
-        let has_perm = if caller == record.patient || caller == record.provider {
-            true
-        } else {
-            let access = Self::check_access(env.clone(), record.patient.clone(), caller.clone());
-            let record_access = Self::check_record_access(env.clone(), record_id, caller.clone());
-            access == AccessLevel::Read
-                || access == AccessLevel::Write
-                || access == AccessLevel::Full
-                || access == AccessLevel::Admin
-                || record_access != AccessLevel::None
-                || rbac::has_permission(&env, &caller, &Permission::SystemAdmin)
-        };
-
-        if !has_perm {
-            return Self::access_denied(&env, &caller, "get_eye_examination", "record_read_access");
-        }
-
-        examination::get_examination(&env, record_id).ok_or(ContractError::RecordNotFound)
+        examination::get_eye_examination(&env, &caller, record_id)
     }
 
     /// Return the current OCC version stamp for a record.
@@ -1997,6 +1901,15 @@ impl VisionRecordsContract {
         insurance_info: Option<InsuranceInfo>,
     ) -> Result<(), ContractError> {
         insurance::update_insurance(&env, &caller, &patient, insurance_info)
+    }
+
+    /// Retrieve insurance information for a patient
+    pub fn get_insurance(
+        env: Env,
+        caller: Address,
+        patient: Address,
+    ) -> Result<OptionalInsuranceInfo, ContractError> {
+        insurance::get_insurance(&env, &caller, &patient)
     }
 
     /// Add medical history reference (IPFS hash or record ID)
@@ -2864,3 +2777,6 @@ mod test_examination_endpoints;
 
 #[cfg(test)]
 mod test_profile;
+
+#[cfg(test)]
+mod test_insurance_endpoints;

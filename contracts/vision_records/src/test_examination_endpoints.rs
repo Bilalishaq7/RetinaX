@@ -8,7 +8,7 @@ use super::{
     RecordType, Role, SlitLampFindings, VisionRecordsContract, VisionRecordsContractClient,
     VisualAcuity,
 };
-use soroban_sdk::{testutils::Address as _, Address, Env, String};
+use soroban_sdk::{testutils::Address as _, testutils::Events as _, Address, Env, String, Vec};
 
 const VALID_HASH: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
@@ -196,4 +196,224 @@ fn get_eye_examination_requires_access_and_existing_exam() {
     assert!(client
         .try_get_eye_examination(&other_provider, &record_id)
         .is_err());
+}
+
+#[test]
+fn add_eye_examination_emits_detailed_events() {
+    let (env, client, admin) = setup();
+    let patient = register_user(&env, &client, &admin, Role::Patient, "Patient");
+    let provider = register_user(&env, &client, &admin, Role::Optometrist, "Provider");
+    let record_id = add_record(&env, &client, &provider, &patient, RecordType::Examination);
+
+    let events_before = env.events().all().events().len();
+    add_eye_exam(&env, &client, &provider, record_id);
+    let events_after = env.events().all().events().len();
+
+    // Verify events were emitted (detailed examination added event, state transition, audit)
+    assert!(events_after > events_before);
+}
+
+#[test]
+fn update_examination_versioned_emits_event_and_updates_data() {
+    let (env, client, admin) = setup();
+    let patient = register_user(&env, &client, &admin, Role::Patient, "Patient");
+    let provider = register_user(&env, &client, &admin, Role::Optometrist, "Provider");
+    let record_id = add_record(&env, &client, &provider, &patient, RecordType::Examination);
+
+    add_eye_exam(&env, &client, &provider, record_id);
+
+    let mut updated_va = visual_acuity(&env);
+    updated_va.uncorrected.left_eye = String::from_str(&env, "20/15");
+
+    let changed_fields = Vec::new(&env);
+    let events_before = env.events().all().events().len();
+
+    let _outcome = client.update_examination_versioned(
+        &provider,
+        &record_id,
+        &0,
+        &1,
+        &updated_va,
+        &iop(&env),
+        &slit_lamp(&env),
+        &OptVisualField::None,
+        &OptRetinalImaging::None,
+        &OptFundusPhotography::None,
+        &String::from_str(&env, "Updated notes"),
+        &changed_fields,
+    );
+
+    let events_after = env.events().all().events().len();
+    assert!(events_after > events_before);
+
+    let exam = client.get_eye_examination(&provider, &record_id);
+    assert_eq!(
+        exam.visual_acuity.uncorrected.left_eye,
+        String::from_str(&env, "20/15")
+    );
+    assert_eq!(exam.clinical_notes, String::from_str(&env, "Updated notes"));
+}
+
+#[test]
+fn add_eye_examination_rejects_oversized_visual_acuity() {
+    let (env, client, admin) = setup();
+    let patient = register_user(&env, &client, &admin, Role::Patient, "Patient");
+    let provider = register_user(&env, &client, &admin, Role::Optometrist, "Provider");
+    let record_id = add_record(&env, &client, &provider, &patient, RecordType::Examination);
+
+    let mut bad_va = visual_acuity(&env);
+    bad_va.uncorrected.left_eye = String::from_str(
+        &env,
+        "measurement_string_that_exceeds_sixty_four_characters_limit_which_is_invalid",
+    );
+
+    let result = client.try_add_eye_examination(
+        &provider,
+        &record_id,
+        &bad_va,
+        &iop(&env),
+        &slit_lamp(&env),
+        &OptVisualField::None,
+        &OptRetinalImaging::None,
+        &OptFundusPhotography::None,
+        &String::from_str(&env, "Routine exam"),
+    );
+
+    assert_eq!(result, Err(Ok(ContractError::InvalidInput)));
+}
+
+#[test]
+fn add_eye_examination_rejects_empty_visual_acuity() {
+    let (env, client, admin) = setup();
+    let patient = register_user(&env, &client, &admin, Role::Patient, "Patient");
+    let provider = register_user(&env, &client, &admin, Role::Optometrist, "Provider");
+    let record_id = add_record(&env, &client, &provider, &patient, RecordType::Examination);
+
+    let mut bad_va = visual_acuity(&env);
+    bad_va.uncorrected.left_eye = String::from_str(&env, "");
+
+    let result = client.try_add_eye_examination(
+        &provider,
+        &record_id,
+        &bad_va,
+        &iop(&env),
+        &slit_lamp(&env),
+        &OptVisualField::None,
+        &OptRetinalImaging::None,
+        &OptFundusPhotography::None,
+        &String::from_str(&env, "Routine exam"),
+    );
+
+    assert_eq!(result, Err(Ok(ContractError::InvalidInput)));
+}
+
+#[test]
+fn add_eye_examination_rejects_oversized_iop_method() {
+    let (env, client, admin) = setup();
+    let patient = register_user(&env, &client, &admin, Role::Patient, "Patient");
+    let provider = register_user(&env, &client, &admin, Role::Optometrist, "Provider");
+    let record_id = add_record(&env, &client, &provider, &patient, RecordType::Examination);
+
+    let mut bad_iop = iop(&env);
+    bad_iop.method = String::from_str(
+        &env,
+        "tonometry_method_description_that_exceeds_the_sixty_four_characters_limit_allowed",
+    );
+
+    let result = client.try_add_eye_examination(
+        &provider,
+        &record_id,
+        &visual_acuity(&env),
+        &bad_iop,
+        &slit_lamp(&env),
+        &OptVisualField::None,
+        &OptRetinalImaging::None,
+        &OptFundusPhotography::None,
+        &String::from_str(&env, "Routine exam"),
+    );
+
+    assert_eq!(result, Err(Ok(ContractError::InvalidInput)));
+}
+
+#[test]
+fn add_eye_examination_rejects_oversized_slit_lamp_findings() {
+    let (env, client, admin) = setup();
+    let patient = register_user(&env, &client, &admin, Role::Patient, "Patient");
+    let provider = register_user(&env, &client, &admin, Role::Optometrist, "Provider");
+    let record_id = add_record(&env, &client, &provider, &patient, RecordType::Examination);
+
+    let oversized_text = "cornea_findings_text_".repeat(15); // > 256 chars
+    let mut bad_slit = slit_lamp(&env);
+    bad_slit.cornea = String::from_str(&env, &oversized_text);
+
+    let result = client.try_add_eye_examination(
+        &provider,
+        &record_id,
+        &visual_acuity(&env),
+        &iop(&env),
+        &bad_slit,
+        &OptVisualField::None,
+        &OptRetinalImaging::None,
+        &OptFundusPhotography::None,
+        &String::from_str(&env, "Routine exam"),
+    );
+
+    assert_eq!(result, Err(Ok(ContractError::InvalidInput)));
+}
+
+#[test]
+fn add_eye_examination_rejects_oversized_clinical_notes() {
+    let (env, client, admin) = setup();
+    let patient = register_user(&env, &client, &admin, Role::Patient, "Patient");
+    let provider = register_user(&env, &client, &admin, Role::Optometrist, "Provider");
+    let record_id = add_record(&env, &client, &provider, &patient, RecordType::Examination);
+
+    let oversized_notes = "clinical_notes_block_".repeat(110); // > 2048 chars
+    let result = client.try_add_eye_examination(
+        &provider,
+        &record_id,
+        &visual_acuity(&env),
+        &iop(&env),
+        &slit_lamp(&env),
+        &OptVisualField::None,
+        &OptRetinalImaging::None,
+        &OptFundusPhotography::None,
+        &String::from_str(&env, &oversized_notes),
+    );
+
+    assert_eq!(result, Err(Ok(ContractError::InvalidInput)));
+}
+
+#[test]
+fn update_examination_versioned_rejects_oversized_strings() {
+    let (env, client, admin) = setup();
+    let patient = register_user(&env, &client, &admin, Role::Patient, "Patient");
+    let provider = register_user(&env, &client, &admin, Role::Optometrist, "Provider");
+    let record_id = add_record(&env, &client, &provider, &patient, RecordType::Examination);
+
+    add_eye_exam(&env, &client, &provider, record_id);
+
+    let mut bad_va = visual_acuity(&env);
+    bad_va.uncorrected.left_eye = String::from_str(
+        &env,
+        "measurement_string_that_exceeds_sixty_four_characters_limit_which_is_invalid",
+    );
+
+    let changed_fields = Vec::new(&env);
+    let result = client.try_update_examination_versioned(
+        &provider,
+        &record_id,
+        &0,
+        &1,
+        &bad_va,
+        &iop(&env),
+        &slit_lamp(&env),
+        &OptVisualField::None,
+        &OptRetinalImaging::None,
+        &OptFundusPhotography::None,
+        &String::from_str(&env, "Notes"),
+        &changed_fields,
+    );
+
+    assert_eq!(result, Err(Ok(ContractError::InvalidInput)));
 }
