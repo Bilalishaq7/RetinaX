@@ -410,6 +410,148 @@ fn test_update_insurance_rejects_oversized_group_hash() {
 }
 
 #[test]
+fn test_update_insurance_when_paused() {
+    let (env, client, admin) = setup_test();
+
+    let patient = Address::generate(&env);
+    client.create_profile(
+        &patient,
+        &patient,
+        &String::from_str(&env, "hash_dob_123"),
+        &String::from_str(&env, "hash_gender_456"),
+        &String::from_str(&env, "hash_blood_789"),
+    );
+
+    // Pause contract globally
+    client.pause_contract(&admin, &crate::circuit_breaker::PauseScope::Global);
+
+    let insurance = InsuranceInfo {
+        provider_hash: String::from_str(&env, "provider_hash_123"),
+        policy_id_hash: String::from_str(&env, "policy_hash_456"),
+        group_id_hash: String::from_str(&env, "group_hash_789"),
+        verified_at: env.ledger().timestamp(),
+    };
+
+    let result = client.try_update_insurance(&patient, &patient, &Some(insurance));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_update_insurance_nonexistent_profile() {
+    let (env, client, _admin) = setup_test();
+
+    let nonexistent_patient = Address::generate(&env);
+    let insurance = InsuranceInfo {
+        provider_hash: String::from_str(&env, "provider_hash_123"),
+        policy_id_hash: String::from_str(&env, "policy_hash_456"),
+        group_id_hash: String::from_str(&env, "group_hash_789"),
+        verified_at: env.ledger().timestamp(),
+    };
+
+    let result =
+        client.try_update_insurance(&nonexistent_patient, &nonexistent_patient, &Some(insurance));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_update_insurance_empty_provider_hash() {
+    let (env, client, _admin) = setup_test();
+
+    let patient = Address::generate(&env);
+    client.create_profile(
+        &patient,
+        &patient,
+        &String::from_str(&env, "hash_dob_123"),
+        &String::from_str(&env, "hash_gender_456"),
+        &String::from_str(&env, "hash_blood_789"),
+    );
+
+    let insurance = InsuranceInfo {
+        provider_hash: String::from_str(&env, ""),
+        policy_id_hash: String::from_str(&env, "policy_hash_456"),
+        group_id_hash: String::from_str(&env, "group_hash_789"),
+        verified_at: env.ledger().timestamp(),
+    };
+
+    let result = client.try_update_insurance(&patient, &patient, &Some(insurance));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_update_insurance_oversized_provider_hash() {
+    let (env, client, _admin) = setup_test();
+
+    let patient = Address::generate(&env);
+    client.create_profile(
+        &patient,
+        &patient,
+        &String::from_str(&env, "hash_dob_123"),
+        &String::from_str(&env, "hash_gender_456"),
+        &String::from_str(&env, "hash_blood_789"),
+    );
+
+    let oversized = "p".repeat(129);
+    let insurance = InsuranceInfo {
+        provider_hash: String::from_str(&env, &oversized),
+        policy_id_hash: String::from_str(&env, "policy_hash_456"),
+        group_id_hash: String::from_str(&env, "group_hash_789"),
+        verified_at: env.ledger().timestamp(),
+    };
+
+    let result = client.try_update_insurance(&patient, &patient, &Some(insurance));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_update_insurance_empty_policy_id_hash() {
+    let (env, client, _admin) = setup_test();
+
+    let patient = Address::generate(&env);
+    client.create_profile(
+        &patient,
+        &patient,
+        &String::from_str(&env, "hash_dob_123"),
+        &String::from_str(&env, "hash_gender_456"),
+        &String::from_str(&env, "hash_blood_789"),
+    );
+
+    let insurance = InsuranceInfo {
+        provider_hash: String::from_str(&env, "provider_hash_123"),
+        policy_id_hash: String::from_str(&env, ""),
+        group_id_hash: String::from_str(&env, "group_hash_789"),
+        verified_at: env.ledger().timestamp(),
+    };
+
+    let result = client.try_update_insurance(&patient, &patient, &Some(insurance));
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_update_insurance_oversized_policy_id_hash() {
+    let (env, client, _admin) = setup_test();
+
+    let patient = Address::generate(&env);
+    client.create_profile(
+        &patient,
+        &patient,
+        &String::from_str(&env, "hash_dob_123"),
+        &String::from_str(&env, "hash_gender_456"),
+        &String::from_str(&env, "hash_blood_789"),
+    );
+
+    let oversized = "policy_".repeat(20);
+    let insurance = InsuranceInfo {
+        provider_hash: String::from_str(&env, "provider_hash_123"),
+        policy_id_hash: String::from_str(&env, &oversized),
+        group_id_hash: String::from_str(&env, "group_hash_789"),
+        verified_at: env.ledger().timestamp(),
+    };
+
+    let result = client.try_update_insurance(&patient, &patient, &Some(insurance));
+    assert!(result.is_err());
+}
+
+#[test]
 fn test_add_medical_history_reference_unauthorized() {
     let (env, client, _admin) = setup_test();
 
