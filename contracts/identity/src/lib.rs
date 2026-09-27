@@ -21,30 +21,48 @@ use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol, Vec,
 };
 
-/// Preparation data for guardian addition
+/// Preparation data for two-phase commit (2PC) guardian addition.
+///
+/// Stored in temporary storage during `prepare_add_guardian` and validated/consumed
+/// during `commit_add_guardian` or cleaned up by `rollback_add_guardian`.
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct PrepareGuardianAddition {
+    /// The active identity owner requesting guardian addition.
     pub caller: Address,
+    /// The candidate guardian address to be added.
     pub guardian: Address,
+    /// Ledger timestamp when the prepare phase was executed.
     pub timestamp: u64,
 }
 
-/// Preparation data for guardian removal
+/// Preparation data for two-phase commit (2PC) guardian removal.
+///
+/// Stored in temporary storage during `prepare_remove_guardian` and validated/consumed
+/// during `commit_remove_guardian` or cleaned up by `rollback_remove_guardian`.
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct PrepareGuardianRemoval {
+    /// The active identity owner requesting guardian removal.
     pub caller: Address,
+    /// The guardian address to be removed.
     pub guardian: Address,
+    /// Ledger timestamp when the prepare phase was executed.
     pub timestamp: u64,
 }
 
-/// Preparation data for recovery threshold change
+/// Preparation data for two-phase commit (2PC) recovery threshold change.
+///
+/// Stored in temporary storage during `prepare_set_recovery_threshold` and validated/consumed
+/// during `commit_set_recovery_threshold` or cleaned up by `rollback_set_recovery_threshold`.
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct PrepareThresholdChange {
+    /// The active identity owner requesting threshold update.
     pub caller: Address,
+    /// The proposed M-of-N threshold value (must be 1 <= threshold <= guardian count).
     pub threshold: u32,
+    /// Ledger timestamp when the prepare phase was executed.
     pub timestamp: u64,
 }
 
@@ -369,7 +387,7 @@ impl IdentityContract {
 
         // Check current guardians count
         let guardians = recovery::get_guardians(&env, &caller);
-        if threshold > guardians.len() as u32 {
+        if threshold > guardians.len() {
             return Err(RecoveryError::InvalidThreshold);
         }
 

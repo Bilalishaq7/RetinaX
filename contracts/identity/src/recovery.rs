@@ -18,38 +18,61 @@ const REC_THR: Symbol = symbol_short!("REC_THR");
 const REC_REQ: Symbol = symbol_short!("REC_REQ");
 const OWN_ACT: Symbol = symbol_short!("OWN_ACT");
 
-// ── Errors ───────────────────────────────────────────────────────────────────
-
+/// Errors returned by the identity recovery and guardian management operations.
 #[soroban_sdk::contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum RecoveryError {
+    /// Contract has already been initialized with an owner.
     AlreadyInitialized = 1,
+    /// Contract is not initialized yet.
     NotInitialized = 2,
+    /// Caller lacks authorization, is not the active owner, or provided invalid 2PC context.
     Unauthorized = 3,
+    /// Identity has reached the maximum allowed number of guardians (5).
     MaxGuardiansReached = 4,
+    /// The specified guardian is already registered for this identity owner.
     DuplicateGuardian = 5,
+    /// The specified guardian is not found in this owner's guardian set.
     GuardianNotFound = 6,
+    /// Specified recovery threshold is invalid (must be between 1 and current guardian count).
     InvalidThreshold = 7,
+    /// Insufficient guardians registered to initiate recovery (minimum 3 required).
     InsufficientGuardians = 8,
+    /// Caller is not a registered guardian for the target identity owner.
     NotAGuardian = 9,
+    /// An active recovery request is already in progress for this owner.
     RecoveryAlreadyActive = 10,
+    /// No active recovery request exists for this owner.
     NoActiveRecovery = 11,
+    /// Guardian has already submitted an approval for the active recovery request.
     AlreadyApproved = 12,
+    /// Required approval threshold has not been reached yet.
     InsufficientApprovals = 13,
+    /// 48-hour recovery cooldown period has not elapsed.
     CooldownNotExpired = 14,
+    /// Identity owner account has been deactivated (e.g. following ownership recovery).
     OwnerDeactivated = 15,
 }
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+/// In-flight identity recovery request state.
+///
+/// Tracks the proposed address, guardian approvals, and timelock cooldown
+/// for transferring identity ownership.
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct RecoveryRequest {
+    /// Current owner address whose identity is being recovered.
     pub old_address: Address,
+    /// Candidate new address proposed by guardians to receive ownership.
     pub new_address: Address,
+    /// List of guardian addresses that have approved this recovery proposal.
     pub approvals: Vec<Address>,
+    /// Ledger timestamp when recovery was initiated.
     pub initiated_at: u64,
+    /// Ledger timestamp after which recovery can be executed (initiated_at + 48h cooldown).
     pub execute_after: u64,
 }
 

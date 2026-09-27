@@ -1,6 +1,7 @@
 use crate::circuit_breaker::{self, PauseScope};
 use crate::errors::ContractError;
 use crate::events;
+use crate::insurance::OptionalInsuranceInfo;
 use crate::rbac::{self, Permission};
 use crate::validation;
 use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
@@ -15,16 +16,6 @@ pub struct EmergencyContact {
     pub relationship: String,
     pub phone: String,
     pub email: String,
-}
-
-/// Insurance information (hashed values only for security)
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct InsuranceInfo {
-    pub provider_hash: String,  // Hash of insurance provider name
-    pub policy_id_hash: String, // Hash of policy ID
-    pub group_id_hash: String,  // Hash of group ID (if applicable)
-    pub verified_at: u64,       // Timestamp of last verification
 }
 
 #[contracttype]
@@ -48,31 +39,6 @@ impl OptionalEmergencyContact {
         match self {
             OptionalEmergencyContact::Some(c) => c,
             OptionalEmergencyContact::None => panic!("called unwrap on None EmergencyContact"),
-        }
-    }
-}
-
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[allow(clippy::large_enum_variant)]
-pub enum OptionalInsuranceInfo {
-    None,
-    Some(InsuranceInfo),
-}
-
-impl OptionalInsuranceInfo {
-    pub fn is_none(&self) -> bool {
-        matches!(self, OptionalInsuranceInfo::None)
-    }
-
-    pub fn is_some(&self) -> bool {
-        matches!(self, OptionalInsuranceInfo::Some(_))
-    }
-
-    pub fn unwrap(self) -> InsuranceInfo {
-        match self {
-            OptionalInsuranceInfo::Some(info) => info,
-            OptionalInsuranceInfo::None => panic!("called unwrap on None InsuranceInfo"),
         }
     }
 }
@@ -101,7 +67,7 @@ pub struct PatientProfile {
     pub medical_history_refs: Vec<String>,
 }
 
-fn profile_storage_key(patient: &Address) -> (Symbol, Address) {
+pub fn profile_storage_key(patient: &Address) -> (Symbol, Address) {
     (PATIENT_PROFILE_KEY_PREFIX, patient.clone())
 }
 
@@ -222,45 +188,6 @@ pub fn update_emergency_contact(
     profile.emergency_contact = match contact {
         Some(c) => OptionalEmergencyContact::Some(c),
         None => OptionalEmergencyContact::None,
-    };
-    profile.updated_at = env.ledger().timestamp();
-
-    env.storage().persistent().set(&key, &profile);
-    events::publish_profile_updated(env, patient.clone());
-
-    Ok(())
-}
-
-/// Update insurance information (hashed values only)
-pub fn update_insurance(
-    env: &Env,
-    caller: &Address,
-    patient: &Address,
-    insurance_info: Option<InsuranceInfo>,
-) -> Result<(), ContractError> {
-    circuit_breaker::require_not_paused(env, &PauseScope::Global)?;
-    caller.require_auth();
-
-    // Only profile owner can update insurance
-    if caller != patient {
-        return Err(ContractError::Unauthorized);
-    }
-
-    let key = profile_storage_key(patient);
-    let mut profile: PatientProfile = env
-        .storage()
-        .persistent()
-        .get(&key)
-        .ok_or(ContractError::UserNotFound)?;
-
-    if let Some(ref info) = insurance_info {
-        validation::validate_string_length(&info.provider_hash, 1, 128)?;
-        validation::validate_string_length(&info.policy_id_hash, 1, 128)?;
-    }
-
-    profile.insurance_info = match insurance_info {
-        Some(info) => OptionalInsuranceInfo::Some(info),
-        None => OptionalInsuranceInfo::None,
     };
     profile.updated_at = env.ledger().timestamp();
 
