@@ -1,0 +1,91 @@
+/* ==========================================================================
+   RetinaX — Feature Highlights
+   Design System: RetinaX Clinical (Serene Clinical White, Slate Navy, Medical Teal)
+   Source: split from website/styles.css — see website/styles.css aggregator
+   ========================================================================== */
+
+/* ==========================================================================
+   Feature Highlights with Context Images
+   ========================================================================== */
+
+.feature-segment {
+  padding: 5.5rem 0;
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-page);
+}
+
+.feature-segment.alt-bg {
+  background-color: var(--bg-surface);
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+}
+
+.feature-grid.reverse {
+  grid-template-columns: 1fr 1fr;
+}
+
+.feature-content h2 {
+  font-family: var(--font-serif);
+  font-size: 2.3rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 1rem;
+}
+
+.feature-content p {
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.7;
+}
+
+.feature-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 2rem;
+}
+
+.feature-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.check-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--clinical-teal-light);
+  color: var(--clinical-teal-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+}
+
+.segment-img-card {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-surface);
+}
+
+.segment-img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
