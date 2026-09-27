@@ -668,6 +668,36 @@ pub struct EmergencyAccessUsedEvent {
     pub timestamp: u64,
 }
 
+/// Event published when emergency access is expired during background cleanup.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EmergencyAccessExpiredEvent {
+    pub access_id: u64,
+    pub patient: Address,
+    pub timestamp: u64,
+}
+
+/// Event published when patient insurance information is updated.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InsuranceUpdatedEvent {
+    pub patient: Address,
+    pub caller: Address,
+    pub provider_hash: String,
+    pub policy_id_hash: String,
+    pub group_id_hash: String,
+    pub timestamp: u64,
+}
+
+/// Event published when patient insurance information is cleared/removed.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InsuranceClearedEvent {
+    pub patient: Address,
+    pub caller: Address,
+    pub timestamp: u64,
+}
+
 /// Publishes an event when emergency access is granted.
 pub fn publish_emergency_access_granted(
     env: &Env,
@@ -749,6 +779,58 @@ pub fn publish_emergency_access_used(
     };
     env.events().publish(topics, data);
 }
+
+/// Publishes an event when an emergency access grant passes its expiration time.
+pub fn publish_emergency_access_expired(
+    env: &Env,
+    access_id: u64,
+    patient: Address,
+) {
+    let topics = (symbol_short!("EMRG_EXP"), patient.clone());
+    let data = EmergencyAccessExpiredEvent {
+        access_id,
+        patient,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when patient insurance information is updated.
+pub fn publish_insurance_updated(
+    env: &Env,
+    patient: Address,
+    caller: Address,
+    provider_hash: String,
+    policy_id_hash: String,
+    group_id_hash: String,
+) {
+    let topics = (symbol_short!("INS_UPD"), patient.clone(), caller.clone());
+    let data = InsuranceUpdatedEvent {
+        patient,
+        caller,
+        provider_hash,
+        policy_id_hash,
+        group_id_hash,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when patient insurance information is cleared or removed.
+pub fn publish_insurance_cleared(
+    env: &Env,
+    patient: Address,
+    caller: Address,
+) {
+    let topics = (symbol_short!("INS_CLR"), patient.clone(), caller.clone());
+    let data = InsuranceClearedEvent {
+        patient,
+        caller,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
 
 /// Event published when an appointment is created/scheduled.
 #[soroban_sdk::contracttype]
