@@ -10,7 +10,6 @@ pub fn validate_string_length(s: &String, min: u32, max: u32) -> Result<(), Cont
 
 use soroban_sdk::String;
 
-use crate::prescription::PrescriptionData;
 use crate::ContractError;
 
 const MIN_NAME_LEN: u32 = 2;
@@ -91,7 +90,35 @@ pub fn validate_duration(duration_seconds: u64) -> Result<(), ContractError> {
     Ok(())
 }
 
-pub fn validate_prescription_data(_data: &PrescriptionData) {}
+use crate::prescription::{
+    ContactLensData, OptionalContactLensData, Prescription, PrescriptionData,
+};
+
+pub fn validate_prescription_data(data: &PrescriptionData) -> Result<(), ContractError> {
+    validate_string_length(&data.sphere, 1, 16)?;
+    validate_string_length(&data.cylinder, 1, 16)?;
+    validate_string_length(&data.axis, 1, 16)?;
+    validate_string_length(&data.add, 0, 16)?;
+    validate_string_length(&data.pd, 1, 16)?;
+    Ok(())
+}
+
+pub fn validate_contact_lens_data(data: &ContactLensData) -> Result<(), ContractError> {
+    validate_string_length(&data.base_curve, 1, 16)?;
+    validate_string_length(&data.diameter, 1, 16)?;
+    validate_string_length(&data.brand, 1, 64)?;
+    Ok(())
+}
+
+pub fn validate_prescription(prescription: &Prescription) -> Result<(), ContractError> {
+    validate_prescription_data(&prescription.left_eye)?;
+    validate_prescription_data(&prescription.right_eye)?;
+    if let OptionalContactLensData::Some(ref contact) = prescription.contact_data {
+        validate_contact_lens_data(contact)?;
+    }
+    validate_string_length(&prescription.metadata_hash, 0, 128)?;
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
@@ -189,6 +216,47 @@ mod tests {
         // Too long
         assert_eq!(
             validate_duration(157_680_001),
+            Err(ContractError::InvalidInput)
+        );
+    }
+
+    #[test]
+    fn test_validate_prescription_data() {
+        let env = Env::default();
+
+        let valid_data = PrescriptionData {
+            sphere: String::from_str(&env, "-2.50"),
+            cylinder: String::from_str(&env, "-1.25"),
+            axis: String::from_str(&env, "180"),
+            add: String::from_str(&env, "+2.00"),
+            pd: String::from_str(&env, "63"),
+        };
+        assert_eq!(validate_prescription_data(&valid_data), Ok(()));
+
+        // Empty sphere
+        let invalid_sphere = PrescriptionData {
+            sphere: String::from_str(&env, ""),
+            cylinder: String::from_str(&env, "-1.25"),
+            axis: String::from_str(&env, "180"),
+            add: String::from_str(&env, "+2.00"),
+            pd: String::from_str(&env, "63"),
+        };
+        assert_eq!(
+            validate_prescription_data(&invalid_sphere),
+            Err(ContractError::InvalidInput)
+        );
+
+        // Oversized pd string
+        let long_pd = "1".repeat(17);
+        let invalid_pd = PrescriptionData {
+            sphere: String::from_str(&env, "-2.50"),
+            cylinder: String::from_str(&env, "-1.25"),
+            axis: String::from_str(&env, "180"),
+            add: String::from_str(&env, "+2.00"),
+            pd: String::from_str(&env, &long_pd),
+        };
+        assert_eq!(
+            validate_prescription_data(&invalid_pd),
             Err(ContractError::InvalidInput)
         );
     }

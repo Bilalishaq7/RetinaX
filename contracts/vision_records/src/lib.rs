@@ -2680,7 +2680,7 @@ impl VisionRecordsContract {
         prescription_data: prescription::PrescriptionData,
     ) -> Result<u64, ContractError> {
         // Validate without state changes
-        validation::validate_prescription_data(&prescription_data);
+        validation::validate_prescription_data(&prescription_data)?;
 
         // Check provider permissions
         let caller = provider.clone();
@@ -2864,3 +2864,6 @@ mod test_examination_endpoints;
 
 #[cfg(test)]
 mod test_profile;
+
+#[cfg(test)]
+mod prescription_tests;
