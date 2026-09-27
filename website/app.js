@@ -117,7 +117,10 @@ function initRBACSimulator() {
 
   if (durSlider && durVal) {
     durSlider.addEventListener('input', (e) => {
-      durVal.textContent = e.target.value;
+      const hours = e.target.value;
+      durVal.textContent = hours;
+      durSlider.setAttribute('aria-valuenow', hours);
+      durSlider.setAttribute('aria-valuetext', `${hours} Hours`);
       updateRBACPreview();
     });
   }
@@ -184,6 +187,8 @@ function initZKSimulator() {
     acuitySlider.addEventListener('input', (e) => {
       const val = e.target.value;
       acuityVal.textContent = `20/${val}`;
+      acuitySlider.setAttribute('aria-valuenow', val);
+      acuitySlider.setAttribute('aria-valuetext', `20/${val}`);
       updateZKPreview();
     });
   }
