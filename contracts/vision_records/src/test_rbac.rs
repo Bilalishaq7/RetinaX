@@ -635,8 +635,18 @@ fn test_happy_path_acl_group_lifecycle_endpoints() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.register_user(&admin, &user_a, &Role::Patient, &String::from_str(&env, "UserA"));
-    client.register_user(&admin, &user_b, &Role::Staff, &String::from_str(&env, "UserB"));
+    client.register_user(
+        &admin,
+        &user_a,
+        &Role::Patient,
+        &String::from_str(&env, "UserA"),
+    );
+    client.register_user(
+        &admin,
+        &user_b,
+        &Role::Staff,
+        &String::from_str(&env, "UserB"),
+    );
 
     // 1. Create ACL group with permissions
     let group_name = String::from_str(&env, "ClinicalAuditors");
@@ -668,8 +678,12 @@ fn test_happy_path_acl_group_lifecycle_endpoints() {
     let group_2 = String::from_str(&env, "SupportTeam");
     let mut perms_2 = Vec::new(&env);
     perms_2.push_back(Permission::ManageAccess);
-    assert!(client.try_create_acl_group(&admin, &group_2, &perms_2).is_ok());
-    assert!(client.try_add_user_to_group(&admin, &user_a, &group_2).is_ok());
+    assert!(client
+        .try_create_acl_group(&admin, &group_2, &perms_2)
+        .is_ok());
+    assert!(client
+        .try_add_user_to_group(&admin, &user_a, &group_2)
+        .is_ok());
 
     let groups_a_updated = client.get_user_groups(&user_a);
     assert_eq!(groups_a_updated.len(), 2);
@@ -759,10 +773,23 @@ fn test_happy_path_set_record_sensitivity_endpoint() {
     let patient = Address::generate(&env);
     let provider = Address::generate(&env);
 
-    client.register_user(&admin, &patient, &Role::Patient, &String::from_str(&env, "PatientJane"));
-    client.register_user(&admin, &provider, &Role::Optometrist, &String::from_str(&env, "ProviderDan"));
+    client.register_user(
+        &admin,
+        &patient,
+        &Role::Patient,
+        &String::from_str(&env, "PatientJane"),
+    );
+    client.register_user(
+        &admin,
+        &provider,
+        &Role::Optometrist,
+        &String::from_str(&env, "ProviderDan"),
+    );
 
-    let data_hash = String::from_str(&env, "a1b2c3d4e5f6");
+    let data_hash = String::from_str(
+        &env,
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    );
     let record_id = client.add_record(
         &provider,
         &patient,
@@ -772,19 +799,13 @@ fn test_happy_path_set_record_sensitivity_endpoint() {
     );
 
     // Provider sets record sensitivity to Confidential
-    let res_provider = client.try_set_record_sensitivity(
-        &provider,
-        &record_id,
-        &SensitivityLevel::Confidential,
-    );
+    let res_provider =
+        client.try_set_record_sensitivity(&provider, &record_id, &SensitivityLevel::Confidential);
     assert!(res_provider.is_ok());
 
     // Admin updates record sensitivity to Restricted
-    let res_admin = client.try_set_record_sensitivity(
-        &admin,
-        &record_id,
-        &SensitivityLevel::Restricted,
-    );
+    let res_admin =
+        client.try_set_record_sensitivity(&admin, &record_id, &SensitivityLevel::Restricted);
     assert!(res_admin.is_ok());
 }
 
@@ -797,10 +818,30 @@ fn test_happy_path_check_permission_all_roles() {
     let staff = Address::generate(&env);
     let patient = Address::generate(&env);
 
-    client.register_user(&admin, &ophthalmologist, &Role::Ophthalmologist, &String::from_str(&env, "Ophth"));
-    client.register_user(&admin, &optometrist, &Role::Optometrist, &String::from_str(&env, "Opto"));
-    client.register_user(&admin, &staff, &Role::Staff, &String::from_str(&env, "Staff"));
-    client.register_user(&admin, &patient, &Role::Patient, &String::from_str(&env, "Patient"));
+    client.register_user(
+        &admin,
+        &ophthalmologist,
+        &Role::Ophthalmologist,
+        &String::from_str(&env, "Ophth"),
+    );
+    client.register_user(
+        &admin,
+        &optometrist,
+        &Role::Optometrist,
+        &String::from_str(&env, "Opto"),
+    );
+    client.register_user(
+        &admin,
+        &staff,
+        &Role::Staff,
+        &String::from_str(&env, "Staff"),
+    );
+    client.register_user(
+        &admin,
+        &patient,
+        &Role::Patient,
+        &String::from_str(&env, "Patient"),
+    );
 
     // Admin has full permissions
     assert!(client.check_permission(&admin, &Permission::SystemAdmin));

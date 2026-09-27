@@ -1,9 +1,65 @@
+//! Standalone prescription domain module.
+//!
+//! Owns the prescription data types, storage, patient history, verification,
+//! OCC-versioned updates, lineage and lifecycle state-machine integration.
+//! Contract entry points in `lib.rs` delegate all prescription-specific logic
+//! to this module so it can be reasoned about (and tested) in isolation.
+
 use soroban_sdk::{contracttype, Address, Env, String, Vec};
 use teye_common::concurrency::{self, FieldChange, UpdateOutcome, VersionStamp};
 use teye_common::lineage::{self, RelationshipKind};
 use teye_common::state_machine::{
     self, EntityKind, LifecycleState, TransitionContext, TransitionRecord,
 };
+
+const TTL_THRESHOLD: u32 = 5_184_000;
+const TTL_EXTEND_TO: u32 = 10_368_000;
+
+/// Standard validity window (1 year) applied to prescriptions created through
+/// the contract's two-phase commit endpoint.
+pub const STANDARD_EXPIRY_SECONDS: u64 = 31_536_000;
+
+/// Storage key for the canonical prescription record persisted by the
+/// contract's two-phase commit endpoint.
+pub fn prescription_data_key(id: u64) -> (soroban_sdk::Symbol, u64) {
+    (soroban_sdk::symbol_short!("RX_DATA"), id)
+}
+
+/// Builds a standalone glasses prescription from a two-phase prepare payload.
+///
+/// Both eyes mirror the provided refraction data and contact-lens data is
+/// absent; the record starts unverified with an empty metadata hash.
+pub fn build_standalone_glasses(
+    env: &Env,
+    id: u64,
+    patient: &Address,
+    provider: &Address,
+    data: &PrescriptionData,
+    issued_at: u64,
+) -> Prescription {
+    Prescription {
+        id,
+        patient: patient.clone(),
+        provider: provider.clone(),
+        lens_type: LensType::Glasses,
+        left_eye: data.clone(),
+        right_eye: data.clone(),
+        contact_data: OptionalContactLensData::None,
+        issued_at,
+        expires_at: issued_at.saturating_add(STANDARD_EXPIRY_SECONDS),
+        verified: false,
+        metadata_hash: String::from_str(env, ""),
+    }
+}
+
+/// Persists the canonical prescription record under its dedicated key.
+pub fn store(env: &Env, prescription: &Prescription) {
+    let key = prescription_data_key(prescription.id);
+    env.storage().persistent().set(&key, prescription);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND_TO);
+}
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
