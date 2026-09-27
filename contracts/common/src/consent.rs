@@ -165,3 +165,90 @@ impl ConsentManager {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_consent_manager_grant_and_is_active() {
+        let mut manager = ConsentManager::default();
+        let now = 1_000_000;
+
+        // Grant consent with TTL (expires at now + 3600)
+        manager.grant("c1", "patient_1", "doctor_1", ConsentType::Treatment, now, Some(3600));
+        assert!(manager.is_active("c1", now));
+        assert!(manager.is_active("c1", now + 1800));
+        assert!(!manager.is_active("c1", now + 3600)); // Expired
+
+        // Grant consent without TTL (never expires)
+        manager.grant("c2", "patient_1", "doctor_2", ConsentType::Research, now, None);
+        assert!(manager.is_active("c2", now + 1_000_000));
+    }
+
+    #[test]
+    fn test_consent_manager_revoke() {
+        let mut manager = ConsentManager::default();
+        let now = 1_000_000;
+
+        manager.grant("c1", "patient_1", "doctor_1", ConsentType::Sharing, now, None);
+        assert_eq!(manager.get_consent_status("c1", now), ConsentStatus::Active);
+
+        manager.revoke("c1");
+        assert!(!manager.is_active("c1", now));
+        assert_eq!(manager.get_consent_status("c1", now), ConsentStatus::Revoked);
+    }
+
+    #[test]
+    fn test_consent_manager_get_consent_attribute() {
+        let mut manager = ConsentManager::default();
+        let now = 1_000_000;
+
+        manager.grant("c1", "patient_1", "doctor_1", ConsentType::Treatment, now, Some(3600));
+        let attr = manager.get_consent_attribute("c1", now).unwrap();
+
+        assert_eq!(attr.subject, "patient_1");
+        assert_eq!(attr.grantee, "doctor_1");
+        assert_eq!(attr.status, ConsentStatus::Active);
+        assert_eq!(attr.granted_at, now);
+        assert_eq!(attr.expires_at, Some(now + 3600));
+
+        assert!(manager.get_consent_attribute("nonexistent", now).is_none());
+    }
+
+    #[test]
+    fn test_consent_manager_get_consent_status() {
+        let mut manager = ConsentManager::default();
+        let now = 1_000_000;
+
+        manager.grant("c1", "patient_1", "doctor_1", ConsentType::Treatment, now, Some(100));
+        manager.grant("c2", "patient_1", "doctor_2", ConsentType::Research, now, None);
+        manager.grant("c3", "patient_2", "doctor_1", ConsentType::Sharing, now, None);
+        manager.revoke("c3");
+
+        assert_eq!(manager.get_consent_status("c1", now), ConsentStatus::Active);
+        assert_eq!(manager.get_consent_status("c1", now + 200), ConsentStatus::Expired);
+        assert_eq!(manager.get_consent_status("c2", now), ConsentStatus::Active);
+        assert_eq!(manager.get_consent_status("c3", now), ConsentStatus::Revoked);
+        assert_eq!(manager.get_consent_status("c4", now), ConsentStatus::NotGranted);
+    }
+
+    #[test]
+    fn test_consent_manager_query_active_consents() {
+        let mut manager = ConsentManager::default();
+        let now = 1_000_000;
+
+        manager.grant("c1", "patient_1", "doctor_1", ConsentType::Treatment, now, None);
+        manager.grant("c2", "patient_1", "doctor_1", ConsentType::Research, now, Some(10)); // Will expire
+        manager.grant("c3", "patient_2", "doctor_1", ConsentType::Sharing, now, None);
+        manager.grant("c4", "patient_1", "doctor_2", ConsentType::Treatment, now, None);
+        manager.revoke("c4"); // Revoked
+
+        let active_for_doc1 = manager.get_active_consents_for_grantee("doctor_1", now + 20);
+        assert_eq!(active_for_doc1.len(), 2);
+
+        let active_for_pat1 = manager.get_active_consents_for_subject("patient_1", now + 20);
+        assert_eq!(active_for_pat1.len(), 1);
+        assert_eq!(active_for_pat1[0].grantee, "doctor_1");
+    }
+}
