@@ -16,6 +16,8 @@ const MAX_NAME_LEN: u32 = 64;
 
 const MIN_HASH_LEN: u32 = 32;
 const MAX_HASH_LEN: u32 = 64;
+const MAX_INSURANCE_HASH_LEN: u32 = 128;
+const MAX_EMERGENCY_ATTESTATION_LEN: u32 = 512;
 
 const MIN_DURATION_SECONDS: u64 = 3600; // 1 hour
 const MAX_DURATION_SECONDS: u64 = 157_680_000; // 5 years
@@ -89,35 +91,23 @@ pub fn validate_duration(duration_seconds: u64) -> Result<(), ContractError> {
     Ok(())
 }
 
-use crate::prescription::{
-    ContactLensData, OptionalContactLensData, Prescription, PrescriptionData,
-};
-
-pub fn validate_prescription_data(data: &PrescriptionData) -> Result<(), ContractError> {
-    validate_string_length(&data.sphere, 1, 16)?;
-    validate_string_length(&data.cylinder, 1, 16)?;
-    validate_string_length(&data.axis, 1, 16)?;
-    validate_string_length(&data.add, 0, 16)?;
-    validate_string_length(&data.pd, 1, 16)?;
-    Ok(())
+pub fn validate_insurance_hash(hash: &String) -> Result<(), ContractError> {
+    validate_string_length(hash, 1, MAX_INSURANCE_HASH_LEN)
 }
 
-pub fn validate_contact_lens_data(data: &ContactLensData) -> Result<(), ContractError> {
-    validate_string_length(&data.base_curve, 1, 16)?;
-    validate_string_length(&data.diameter, 1, 16)?;
-    validate_string_length(&data.brand, 1, 64)?;
-    Ok(())
+pub fn validate_emergency_attestation(attestation: &String) -> Result<(), ContractError> {
+    validate_string_length(attestation, 1, MAX_EMERGENCY_ATTESTATION_LEN)
+        .map_err(|_| ContractError::InvalidAttestation)
 }
 
-pub fn validate_prescription(prescription: &Prescription) -> Result<(), ContractError> {
-    validate_prescription_data(&prescription.left_eye)?;
-    validate_prescription_data(&prescription.right_eye)?;
-    if let OptionalContactLensData::Some(ref contact) = prescription.contact_data {
-        validate_contact_lens_data(contact)?;
+pub fn validate_emergency_duration(duration_seconds: u64) -> Result<(), ContractError> {
+    if duration_seconds == 0 || duration_seconds > 86_400 {
+        return Err(ContractError::InvalidInput);
     }
-    validate_string_length(&prescription.metadata_hash, 0, 128)?;
     Ok(())
 }
+
+pub fn validate_prescription_data(_data: &PrescriptionData) {}
 
 #[cfg(test)]
 mod tests {

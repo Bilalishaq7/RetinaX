@@ -3,7 +3,8 @@ mod common;
 use common::setup_test_env;
 use soroban_sdk::{testutils::Address as _, testutils::Ledger, Address, String, Vec};
 use vision_records::{
-    Certification, EmergencyCondition, EmergencyStatus, License, Location, VerificationStatus,
+    Certification, ContractError, EmergencyCondition, EmergencyStatus, License, Location,
+    VerificationStatus,
 };
 
 type TestContext = common::TestContext;
@@ -97,6 +98,44 @@ fn test_grant_emergency_access() {
 }
 
 #[test]
+fn test_grant_emergency_access_happy_path_audit_and_check() {
+    let ctx = setup_test_env();
+    let provider = create_test_provider(&ctx);
+    let patient = Address::generate(&ctx.env);
+
+    let attestation = String::from_str(&ctx.env, "Immediate retinal trauma evaluation required");
+    let contacts = Vec::new(&ctx.env);
+    let duration = 900u64;
+
+    let access_id = ctx.client.grant_emergency_access(
+        &provider,
+        &patient,
+        &EmergencyCondition::SurgicalEmergency,
+        &attestation,
+        &duration,
+        &contacts,
+    );
+
+    let checked = ctx.client.check_emergency_access(&patient, &provider);
+    assert!(checked.is_some());
+    assert_eq!(checked.unwrap().id, access_id);
+
+    ctx.client
+        .access_record_via_emergency(&provider, &patient, &Some(7));
+
+    let audit_trail = ctx.client.get_emergency_audit_trail(&access_id);
+    assert!(audit_trail.len() >= 2);
+    assert_eq!(
+        audit_trail.get(0).unwrap().action,
+        String::from_str(&ctx.env, "GRANTED")
+    );
+    assert_eq!(
+        audit_trail.get(1).unwrap().action,
+        String::from_str(&ctx.env, "ACCESSED")
+    );
+}
+
+#[test]
 fn test_grant_emergency_access_requires_verified_provider() {
     let ctx = setup_test_env();
     let unverified_provider = Address::generate(&ctx.env);
@@ -137,7 +176,30 @@ fn test_grant_emergency_access_requires_attestation() {
         &contacts,
     );
 
-    assert!(result.is_err());
+    assert_eq!(result, Err(Ok(ContractError::InvalidAttestation)));
+}
+
+#[test]
+fn test_grant_emergency_access_rejects_oversized_attestation() {
+    let ctx = setup_test_env();
+    let provider = create_test_provider(&ctx);
+    let patient = Address::generate(&ctx.env);
+
+    let oversized = "A".repeat(513);
+    let attestation = String::from_str(&ctx.env, &oversized);
+    let contacts = Vec::new(&ctx.env);
+    let duration = 3600u64;
+
+    let result = ctx.client.try_grant_emergency_access(
+        &provider,
+        &patient,
+        &EmergencyCondition::LifeThreatening,
+        &attestation,
+        &duration,
+        &contacts,
+    );
+
+    assert_eq!(result, Err(Ok(ContractError::InvalidAttestation)));
 }
 
 #[test]
@@ -160,7 +222,7 @@ fn test_grant_emergency_access_max_duration() {
         &contacts,
     );
 
-    assert!(result.is_err());
+    assert_eq!(result, Err(Ok(ContractError::InvalidInput)));
 
     // Try with 0 duration
     let duration_zero = 0u64;
@@ -173,7 +235,7 @@ fn test_grant_emergency_access_max_duration() {
         &contacts,
     );
 
-    assert!(result.is_err());
+    assert_eq!(result, Err(Ok(ContractError::InvalidInput)));
 }
 
 #[test]

@@ -1,0 +1,39 @@
+name: Frontend Lint
+
+on:
+  push:
+    paths:
+      - 'website/**'
+      - 'eslint.config.mjs'
+      - '.prettierrc.json'
+      - '.github/workflows/frontend-lint.yml'
+  pull_request:
+    paths:
+      - 'website/**'
+      - 'eslint.config.mjs'
+      - '.prettierrc.json'
+      - '.github/workflows/frontend-lint.yml'
+
+jobs:
+  lint:
+    name: ESLint + Prettier + Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check formatting with Prettier
+        run: npx --yes prettier@3.3.3 --check "website/**/*.js"
+
+      - name: Lint with ESLint
+        run: npx --yes eslint@9.11.1 .
+
+      - name: Run frontend unit tests
+        run: node --test website/utils.test.js

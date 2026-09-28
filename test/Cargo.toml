@@ -16,3 +16,10 @@ proptest    = { version = "1" }
 
 [dev-dependencies]
 soroban-sdk = { version = "25.0.0", features = ["testutils"] }
+identity = { path = "../contracts/identity" }
+key_manager = { path = "../contracts/key_manager" }
+vision_records = { path = "../contracts/vision_records" }
+
+[[test]]
+name = "cross_contract_integration"
+path = "tests/integration/cross_contract.rs"
