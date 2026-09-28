@@ -15,7 +15,7 @@
 #![allow(unused_variables, unused_imports)]
 extern crate std;
 
-use soroban_sdk::{testutils::Address as _, Address, Env, testutils::events::Event};
+use soroban_sdk::{testutils::events::Event, testutils::Address as _, Address, Env};
 
 use crate::{
     billing::{BillingModel, CycleStatus},

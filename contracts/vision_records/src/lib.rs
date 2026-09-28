@@ -2027,20 +2027,7 @@ impl VisionRecordsContract {
         user: Address,
         permission: Permission,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-        // Unified check: covers direct role, custom grants, and delegated roles
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "grant_custom_permission",
-                "permission:ManageUsers",
-            );
-        }
-        rbac::grant_custom_permission(&env, user, permission)
-            .map_err(|_| ContractError::UserNotFound)?;
-        Ok(())
+        rbac::grant_custom_permission(&env, &caller, user, permission)
     }
 
     /// Revokes a custom permission from a user.
@@ -2051,20 +2038,7 @@ impl VisionRecordsContract {
         user: Address,
         permission: Permission,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-        // Unified check: covers direct role, custom grants, and delegated roles
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "revoke_custom_permission",
-                "permission:ManageUsers",
-            );
-        }
-        rbac::revoke_custom_permission(&env, user, permission)
-            .map_err(|_| ContractError::UserNotFound)?;
-        Ok(())
+        rbac::revoke_custom_permission(&env, &caller, user, permission)
     }
 
     /// Delegates a role to another user with an expiration timestamp.
@@ -2076,10 +2050,7 @@ impl VisionRecordsContract {
         role: Role,
         expires_at: u64,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        delegator.require_auth();
-        rbac::delegate_role(&env, delegator, delegatee, role, expires_at);
-        Ok(())
+        rbac::delegate_role(&env, delegator, delegatee, role, expires_at)
     }
 
     /// Pauses contract operations for a given scope.
@@ -2109,13 +2080,7 @@ impl VisionRecordsContract {
         group_name: String,
         permissions: Vec<Permission>,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
-            return Self::unauthorized(&env, &caller, "create_acl_group", "permission:ManageUsers");
-        }
-        rbac::create_group(&env, group_name, permissions);
-        Ok(())
+        rbac::create_group(&env, &caller, group_name, permissions)
     }
 
     /// Adds a user to an ACL group.
@@ -2125,17 +2090,7 @@ impl VisionRecordsContract {
         user: Address,
         group_name: String,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "add_user_to_group",
-                "permission:ManageUsers",
-            );
-        }
-        rbac::add_to_group(&env, user, group_name).map_err(|_| ContractError::InvalidInput)
+        rbac::add_to_group(&env, &caller, user, group_name)
     }
 
     /// Removes a user from an ACL group.
@@ -2145,26 +2100,12 @@ impl VisionRecordsContract {
         user: Address,
         group_name: String,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "remove_user_from_group",
-                "permission:ManageUsers",
-            );
-        }
-        rbac::remove_from_group(&env, user, group_name);
-        Ok(())
+        rbac::remove_from_group(&env, &caller, user, group_name)
     }
 
     /// Returns all ACL groups assigned to a user.
     pub fn get_user_groups(env: Env, user: Address) -> Vec<String> {
-        env.storage()
-            .persistent()
-            .get(&rbac::user_groups_key(&user))
-            .unwrap_or(Vec::new(&env))
+        rbac::get_user_groups(&env, &user)
     }
 
     /// Checks if a user has a specific permission.
@@ -2185,13 +2126,6 @@ impl VisionRecordsContract {
         min_sensitivity_level: SensitivityLevel,
         consent_required: bool,
     ) -> Result<(), ContractError> {
-        caller.require_auth();
-
-        // Only SystemAdmin can create policies
-        if !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
-            return Err(ContractError::Unauthorized);
-        }
-
         let conditions = rbac::PolicyConditions {
             required_role,
             time_restriction,
@@ -2199,18 +2133,7 @@ impl VisionRecordsContract {
             min_sensitivity_level,
             consent_required,
         };
-
-        let policy = rbac::AccessPolicy {
-            id: policy_id.clone(),
-            name,
-            conditions,
-            enabled: true,
-        };
-
-        rbac::create_access_policy(&env, policy);
-        events::publish_policy_created(&env, policy_id, caller);
-
-        Ok(())
+        rbac::create_access_policy(&env, &caller, policy_id, name, conditions)
     }
 
     /// Set credential type for a user
@@ -2220,17 +2143,7 @@ impl VisionRecordsContract {
         user: Address,
         credential: CredentialType,
     ) -> Result<(), ContractError> {
-        caller.require_auth();
-
-        // Only SystemAdmin can set credentials
-        if !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
-            return Err(ContractError::Unauthorized);
-        }
-
-        rbac::set_user_credential(&env, user.clone(), credential);
-        events::publish_credential_set(&env, user, credential, caller);
-
-        Ok(())
+        rbac::set_user_credential(&env, &caller, user, credential)
     }
 
     /// Set sensitivity level for a record

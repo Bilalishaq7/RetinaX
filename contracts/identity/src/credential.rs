@@ -6,6 +6,17 @@ pub type VkG1Point = Bytes;
 /// Serialized representation of a BN254 G2 affine point (128 bytes: 64 bytes X [c0, c1], 64 bytes Y [c0, c1]).
 pub type VkG2Point = Bytes;
 
+/// Client interface for the `zk_verifier` contract. Declared here because the
+/// crate is linked with its `library` feature, which omits its generated client
+/// in wasm builds.
+#[soroban_sdk::contractclient(name = "ZkVerifierClient")]
+pub trait ZkVerifierInterface {
+    fn verify_access(
+        env: Env,
+        request: zk_verifier::AccessRequest,
+    ) -> Result<bool, zk_verifier::ContractError>;
+}
+
 const ZK_VERIFIER: Symbol = symbol_short!("ZK_VER");
 
 /// Errors that can occur during ZK credential verification operations.
@@ -50,7 +61,7 @@ pub fn verify_zk_credential(
     }
 
     let verifier_id = get_zk_verifier(env).ok_or(CredentialError::VerifierNotSet)?;
-    let client = zk_verifier::ZkVerifierContractClient::new(env, &verifier_id);
+    let client = ZkVerifierClient::new(env, &verifier_id);
 
     // Reconstruct the proof points from raw bytes.
     // The proof bytes are expected to be in G1 (64 bytes: 32x, 32y) and G2 (128 bytes: 32x0, 32x1, 32y0, 32y1) format.
@@ -74,22 +85,62 @@ pub fn verify_zk_credential(
 
     let proof = zk_verifier::Proof {
         a: zk_verifier::vk::G1Point {
-            x: BytesN::from_array(env, &a_buf[0..32].try_into().map_err(|_| CredentialError::ZkVerificationFailed)?),
-            y: BytesN::from_array(env, &a_buf[32..64].try_into().map_err(|_| CredentialError::ZkVerificationFailed)?),
+            x: BytesN::from_array(
+                env,
+                &a_buf[0..32]
+                    .try_into()
+                    .map_err(|_| CredentialError::ZkVerificationFailed)?,
+            ),
+            y: BytesN::from_array(
+                env,
+                &a_buf[32..64]
+                    .try_into()
+                    .map_err(|_| CredentialError::ZkVerificationFailed)?,
+            ),
         },
         b: zk_verifier::vk::G2Point {
             x: (
-                BytesN::from_array(env, &b_buf[0..32].try_into().map_err(|_| CredentialError::ZkVerificationFailed)?),
-                BytesN::from_array(env, &b_buf[32..64].try_into().map_err(|_| CredentialError::ZkVerificationFailed)?),
+                BytesN::from_array(
+                    env,
+                    &b_buf[0..32]
+                        .try_into()
+                        .map_err(|_| CredentialError::ZkVerificationFailed)?,
+                ),
+                BytesN::from_array(
+                    env,
+                    &b_buf[32..64]
+                        .try_into()
+                        .map_err(|_| CredentialError::ZkVerificationFailed)?,
+                ),
             ),
             y: (
-                BytesN::from_array(env, &b_buf[64..96].try_into().map_err(|_| CredentialError::ZkVerificationFailed)?),
-                BytesN::from_array(env, &b_buf[96..128].try_into().map_err(|_| CredentialError::ZkVerificationFailed)?),
+                BytesN::from_array(
+                    env,
+                    &b_buf[64..96]
+                        .try_into()
+                        .map_err(|_| CredentialError::ZkVerificationFailed)?,
+                ),
+                BytesN::from_array(
+                    env,
+                    &b_buf[96..128]
+                        .try_into()
+                        .map_err(|_| CredentialError::ZkVerificationFailed)?,
+                ),
             ),
         },
         c: zk_verifier::vk::G1Point {
-            x: BytesN::from_array(env, &c_buf[0..32].try_into().map_err(|_| CredentialError::ZkVerificationFailed)?),
-            y: BytesN::from_array(env, &c_buf[32..64].try_into().map_err(|_| CredentialError::ZkVerificationFailed)?),
+            x: BytesN::from_array(
+                env,
+                &c_buf[0..32]
+                    .try_into()
+                    .map_err(|_| CredentialError::ZkVerificationFailed)?,
+            ),
+            y: BytesN::from_array(
+                env,
+                &c_buf[32..64]
+                    .try_into()
+                    .map_err(|_| CredentialError::ZkVerificationFailed)?,
+            ),
         },
     };
 

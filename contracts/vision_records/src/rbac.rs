@@ -111,10 +111,40 @@
 //! - `("USER_CRED", user)` → CredentialType
 //! - `("REC_SENS", record_id)` → SensitivityLevel
 
+use crate::circuit_breaker::{self, PauseScope};
+use crate::errors::ContractError;
+use crate::events;
+use crate::validation;
 use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
 
 const TTL_THRESHOLD: u32 = 5184000;
 const TTL_EXTEND_TO: u32 = 10368000;
+
+/// Maximum byte length of an ACL group name, access-policy id or policy name.
+///
+/// These strings are part of persistent storage keys (`ACL_GRP`, `USR_GRPS`,
+/// `ACC_POL`) and event payloads, so they are bounded to keep ledger entries
+/// and event sizes small.
+pub const MAX_RBAC_STRING_LEN: u32 = 64;
+
+/// Reject empty or oversized RBAC identifiers with `InvalidInput`.
+fn validate_rbac_string(value: &String) -> Result<(), ContractError> {
+    validation::validate_string_length(value, 1, MAX_RBAC_STRING_LEN)
+}
+
+/// Require `ManageUsers`, publishing an access-violation event on failure.
+fn require_manage_users(env: &Env, caller: &Address, action: &str) -> Result<(), ContractError> {
+    if has_permission(env, caller, &Permission::ManageUsers) {
+        return Ok(());
+    }
+    events::publish_access_violation(
+        env,
+        caller.clone(),
+        String::from_str(env, action),
+        String::from_str(env, "permission:ManageUsers"),
+    );
+    Err(ContractError::Unauthorized)
+}
 
 /// Time-based access restrictions for contextual access control.
 ///
@@ -462,37 +492,56 @@ pub fn get_active_assignment(env: &Env, user: &Address) -> Option<RoleAssignment
 /// If the same permission is in custom_revokes, it is removed from revokes.
 /// This is useful for temporarily elevating a user's permissions beyond their role.
 ///
-/// Returns `Err(())` if the user has no active assignment.
+/// `caller` must hold `ManageUsers`. Returns `UserNotFound` if the user has no
+/// active assignment. Publishes `PERM_GRT` when the assignment changes; granting
+/// a permission the user already holds is a no-op.
 ///
 /// # Precedence
 /// If a permission is in both custom_grants and custom_revokes, grants take precedence
 /// over revokes (revokes are removed when granting).
 ///
+/// # Complexity
+/// O(g + r) over the user's custom grants and revokes.
+///
 /// # Example
 /// ```ignore
-/// grant_custom_permission(&env, staff_member, Permission::WriteRecord)?;
+/// grant_custom_permission(&env, &admin, staff_member, Permission::WriteRecord)?;
 /// // Staff member can now write records despite not having it in their base role
 /// ```
-pub fn grant_custom_permission(env: &Env, user: Address, permission: Permission) -> Result<(), ()> {
-    let mut assignment = get_active_assignment(env, &user).ok_or(())?;
+pub fn grant_custom_permission(
+    env: &Env,
+    caller: &Address,
+    user: Address,
+    permission: Permission,
+) -> Result<(), ContractError> {
+    circuit_breaker::require_not_paused(env, &PauseScope::Global)?;
+    caller.require_auth();
+    require_manage_users(env, caller, "grant_custom_permission")?;
+    let mut assignment = get_active_assignment(env, &user).ok_or(ContractError::UserNotFound)?;
 
     // Remove from revokes if present
+    let revokes_before = assignment.custom_revokes.len();
     let mut new_revokes = Vec::new(env);
     for r in assignment.custom_revokes.iter() {
         if r != permission {
             new_revokes.push_back(r);
         }
     }
+    let mut changed = new_revokes.len() != revokes_before;
     assignment.custom_revokes = new_revokes;
 
     // Add to grants if not already there
     if !assignment.custom_grants.contains(&permission) {
-        assignment.custom_grants.push_back(permission);
+        assignment.custom_grants.push_back(permission.clone());
+        changed = true;
     }
 
     let key = user_assignment_key(&user);
     env.storage().persistent().set(&key, &assignment);
     extend_ttl_address_key(env, &key);
+    if changed {
+        events::publish_permission_granted(env, user, permission, caller.clone());
+    }
     Ok(())
 }
 
@@ -504,41 +553,56 @@ pub fn grant_custom_permission(env: &Env, user: Address, permission: Permission)
 /// - Custom grants
 /// - Delegated permissions
 ///
-/// Returns `Err(())` if the user has no active assignment.
+/// `caller` must hold `ManageUsers`. Returns `UserNotFound` if the user has no
+/// active assignment. Publishes `PERM_REV` when the assignment changes; revoking
+/// an already-revoked permission is a no-op.
 ///
 /// # Precedence
 /// Custom revokes are the highest priority. Even if the user's role would grant
 /// a permission, an explicit revoke will deny it.
 ///
+/// # Complexity
+/// O(g + r) over the user's custom grants and revokes.
+///
 /// # Example
 /// ```ignore
-/// revoke_custom_permission(&env, contractor, Permission::ManageAccess)?;
+/// revoke_custom_permission(&env, &admin, contractor, Permission::ManageAccess)?;
 /// // Contractor can no longer manage access, even if a delegation grants it
 /// ```
 pub fn revoke_custom_permission(
     env: &Env,
+    caller: &Address,
     user: Address,
     permission: Permission,
-) -> Result<(), ()> {
-    let mut assignment = get_active_assignment(env, &user).ok_or(())?;
+) -> Result<(), ContractError> {
+    circuit_breaker::require_not_paused(env, &PauseScope::Global)?;
+    caller.require_auth();
+    require_manage_users(env, caller, "revoke_custom_permission")?;
+    let mut assignment = get_active_assignment(env, &user).ok_or(ContractError::UserNotFound)?;
 
     // Remove from grants if present
+    let grants_before = assignment.custom_grants.len();
     let mut new_grants = Vec::new(env);
     for g in assignment.custom_grants.iter() {
         if g != permission {
             new_grants.push_back(g);
         }
     }
+    let mut changed = new_grants.len() != grants_before;
     assignment.custom_grants = new_grants;
 
     // Add to revokes if not already there
     if !assignment.custom_revokes.contains(&permission) {
-        assignment.custom_revokes.push_back(permission);
+        assignment.custom_revokes.push_back(permission.clone());
+        changed = true;
     }
 
     let key = user_assignment_key(&user);
     env.storage().persistent().set(&key, &assignment);
     extend_ttl_address_key(env, &key);
+    if changed {
+        events::publish_permission_revoked(env, user, permission, caller.clone());
+    }
     Ok(())
 }
 
@@ -553,14 +617,19 @@ pub fn revoke_custom_permission(
 /// * `role` - The role being delegated (delegatee gets all its permissions)
 /// * `expires_at` - Timestamp when delegation expires (0 = never expires)
 ///
+/// The delegator must authorize the call. Publishes `ROLE_DEL`.
+///
 /// # Indices Updated
 /// - Delegatee's index: who can delegate to them (for permission lookups)
 /// - Delegator's index: who they delegate to (for cascade cleanup)
 ///
+/// # Complexity
+/// O(d) over the delegatee's delegator index and the delegator's delegatee index.
+///
 /// # Example: Covering for a colleague
 /// ```ignore
 /// // Dr. Alice is on vacation, delegate her role to Dr. Bob
-/// delegate_role(&env, dr_alice, dr_bob, Role::Ophthalmologist, next_month_timestamp);
+/// delegate_role(&env, dr_alice, dr_bob, Role::Ophthalmologist, next_month_timestamp)?;
 /// // Dr. Bob now has Ophthalmologist permissions through delegation
 /// ```
 pub fn delegate_role(
@@ -569,7 +638,9 @@ pub fn delegate_role(
     delegatee: Address,
     role: Role,
     expires_at: u64,
-) {
+) -> Result<(), ContractError> {
+    circuit_breaker::require_not_paused(env, &PauseScope::Global)?;
+    delegator.require_auth();
     let del = Delegation {
         delegator: delegator.clone(),
         delegatee: delegatee.clone(),
@@ -603,12 +674,15 @@ pub fn delegate_role(
         .get(&delegator_idx_key)
         .unwrap_or(Vec::new(env));
     if !delegatees.contains(&delegatee) {
-        delegatees.push_back(delegatee);
+        delegatees.push_back(delegatee.clone());
     }
     env.storage()
         .persistent()
         .set(&delegator_idx_key, &delegatees);
     extend_ttl_address_key(env, &delegator_idx_key);
+
+    events::publish_role_delegated(env, delegator, delegatee, role, expires_at);
+    Ok(())
 }
 
 /// Retrieve a full role delegation between two users.
@@ -750,23 +824,38 @@ pub fn get_active_scoped_delegation(
 /// Groups allow bundling related permissions for easier management. Users can belong
 /// to multiple groups, gaining permissions from all of them.
 ///
+/// `caller` must hold `ManageUsers`. An existing group with the same name has its
+/// permissions replaced. Publishes `GRP_CRT`.
+///
 /// # Arguments
-/// * `name` - Unique name for the group
+/// * `name` - Unique name for the group, 1 to [`MAX_RBAC_STRING_LEN`] bytes
 /// * `permissions` - Vector of permissions this group grants
 ///
 /// # Example
 /// ```ignore
-/// create_group(&env, "researchers", vec![Permission::ReadAnyRecord]);
-/// add_to_group(&env, researcher1, "researchers")?;
+/// create_group(&env, &admin, "researchers", vec![Permission::ReadAnyRecord])?;
+/// add_to_group(&env, &admin, researcher1, "researchers")?;
 /// ```
-pub fn create_group(env: &Env, name: String, permissions: Vec<Permission>) {
+pub fn create_group(
+    env: &Env,
+    caller: &Address,
+    name: String,
+    permissions: Vec<Permission>,
+) -> Result<(), ContractError> {
+    circuit_breaker::require_not_paused(env, &PauseScope::Global)?;
+    caller.require_auth();
+    require_manage_users(env, caller, "create_acl_group")?;
+    validate_rbac_string(&name)?;
+
     let group = AclGroup {
         name: name.clone(),
-        permissions,
+        permissions: permissions.clone(),
     };
     env.storage()
         .persistent()
         .set(&acl_group_key(&name), &group);
+    events::publish_acl_group_created(env, name, permissions, caller.clone());
+    Ok(())
 }
 
 /// Delete an ACL group.
@@ -781,27 +870,35 @@ pub fn delete_group(env: &Env, name: String) {
 /// Add a user to an ACL group.
 ///
 /// The user will immediately inherit all permissions from the group.
-/// If the group doesn't exist, returns `Err(())`.
-/// If the user is already in the group, no action is taken (idempotent).
+/// `caller` must hold `ManageUsers`. If the group doesn't exist, returns
+/// `InvalidInput`. If the user is already in the group, no action is taken
+/// (idempotent); otherwise publishes `GRP_ADD`.
 ///
-/// Returns `Ok(())` on success or group doesn't exist, `Err(())` otherwise.
-pub fn add_to_group(env: &Env, user: Address, group_name: String) -> Result<(), ()> {
+/// # Complexity
+/// O(k) over the user's group memberships.
+pub fn add_to_group(
+    env: &Env,
+    caller: &Address,
+    user: Address,
+    group_name: String,
+) -> Result<(), ContractError> {
+    circuit_breaker::require_not_paused(env, &PauseScope::Global)?;
+    caller.require_auth();
+    require_manage_users(env, caller, "add_user_to_group")?;
+    validate_rbac_string(&group_name)?;
+
     // Verify group exists
     if !env.storage().persistent().has(&acl_group_key(&group_name)) {
-        return Err(());
+        return Err(ContractError::InvalidInput);
     }
 
-    let mut groups: Vec<String> = env
-        .storage()
-        .persistent()
-        .get(&user_groups_key(&user))
-        .unwrap_or(Vec::new(env));
-
+    let mut groups = get_user_groups(env, &user);
     if !groups.contains(&group_name) {
-        groups.push_back(group_name);
+        groups.push_back(group_name.clone());
         env.storage()
             .persistent()
             .set(&user_groups_key(&user), &groups);
+        events::publish_acl_group_member_added(env, user, group_name, caller.clone());
     }
     Ok(())
 }
@@ -809,23 +906,44 @@ pub fn add_to_group(env: &Env, user: Address, group_name: String) -> Result<(), 
 /// Remove a user from an ACL group.
 ///
 /// The user will no longer inherit permissions from the group after this call.
-/// If the user isn't in the group, no action is taken (idempotent).
-pub fn remove_from_group(env: &Env, user: Address, group_name: String) {
-    let groups: Vec<String> = env
-        .storage()
-        .persistent()
-        .get(&user_groups_key(&user))
-        .unwrap_or(Vec::new(env));
+/// `caller` must hold `ManageUsers`. If the user isn't in the group, no action
+/// is taken (idempotent); otherwise publishes `GRP_REM`.
+///
+/// # Complexity
+/// O(k) over the user's group memberships.
+pub fn remove_from_group(
+    env: &Env,
+    caller: &Address,
+    user: Address,
+    group_name: String,
+) -> Result<(), ContractError> {
+    circuit_breaker::require_not_paused(env, &PauseScope::Global)?;
+    caller.require_auth();
+    require_manage_users(env, caller, "remove_user_from_group")?;
+    validate_rbac_string(&group_name)?;
 
+    let groups = get_user_groups(env, &user);
     let mut new_groups = Vec::new(env);
     for g in groups.iter() {
         if g != group_name {
             new_groups.push_back(g);
         }
     }
+    if new_groups.len() != groups.len() {
+        env.storage()
+            .persistent()
+            .set(&user_groups_key(&user), &new_groups);
+        events::publish_acl_group_member_removed(env, user, group_name, caller.clone());
+    }
+    Ok(())
+}
+
+/// ACL groups the user belongs to; empty if none.
+pub fn get_user_groups(env: &Env, user: &Address) -> Vec<String> {
     env.storage()
         .persistent()
-        .set(&user_groups_key(&user), &new_groups);
+        .get(&user_groups_key(user))
+        .unwrap_or(Vec::new(env))
 }
 
 /// Get all permissions granted by a group.
@@ -1111,11 +1229,24 @@ pub fn evaluate_access_policies(
     false
 }
 
-/// Set user credential type
-pub fn set_user_credential(env: &Env, user: Address, credential: CredentialType) {
+/// Set a user's credential type. `caller` must hold `SystemAdmin`.
+/// Publishes `CRED_SET`.
+pub fn set_user_credential(
+    env: &Env,
+    caller: &Address,
+    user: Address,
+    credential: CredentialType,
+) -> Result<(), ContractError> {
+    caller.require_auth();
+    if !has_permission(env, caller, &Permission::SystemAdmin) {
+        return Err(ContractError::Unauthorized);
+    }
+
     let key = user_credential_key(&user);
     env.storage().persistent().set(&key, &credential);
     extend_ttl_address_key(env, &key);
+    events::publish_credential_set(env, user, credential, caller.clone());
+    Ok(())
 }
 
 /// Set record sensitivity level
@@ -1125,10 +1256,34 @@ pub fn set_record_sensitivity(env: &Env, record_id: u64, sensitivity: Sensitivit
     extend_ttl_u64_key(env, &key);
 }
 
-/// Create or update an access policy
-pub fn create_access_policy(env: &Env, policy: AccessPolicy) {
-    let key = access_policy_key(&policy.id);
-    env.storage().persistent().set(&key, &policy);
+/// Create or replace an enabled ABAC access policy. `caller` must hold
+/// `SystemAdmin`; `policy_id` and `name` must be 1 to [`MAX_RBAC_STRING_LEN`]
+/// bytes. Publishes `POL_CRT`.
+pub fn create_access_policy(
+    env: &Env,
+    caller: &Address,
+    policy_id: String,
+    name: String,
+    conditions: PolicyConditions,
+) -> Result<(), ContractError> {
+    caller.require_auth();
+    if !has_permission(env, caller, &Permission::SystemAdmin) {
+        return Err(ContractError::Unauthorized);
+    }
+    validate_rbac_string(&policy_id)?;
+    validate_rbac_string(&name)?;
+
+    let policy = AccessPolicy {
+        id: policy_id.clone(),
+        name,
+        conditions,
+        enabled: true,
+    };
+    env.storage()
+        .persistent()
+        .set(&access_policy_key(&policy_id), &policy);
+    events::publish_policy_created(env, policy_id, caller.clone());
+    Ok(())
 }
 
 fn extend_ttl_u64_key(env: &Env, key: &(soroban_sdk::Symbol, u64)) {

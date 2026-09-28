@@ -16,9 +16,7 @@ use audit::{
     search::{SearchEngine, SearchKey},
     types::{AuditError, LogSegmentId, RetentionPolicy},
 };
-use soroban_sdk::{
-    symbol_short, testutils::Address as _, Address, Env, Symbol,
-};
+use soroban_sdk::{symbol_short, testutils::Address as _, Address, Env, Symbol};
 
 // ── Mock Contracts for Cross-Contract Negative Tests ─────────────────────────
 
@@ -273,10 +271,7 @@ fn test_contract_create_duplicate_segment_returns_error() {
 
     // Second creation of the exact same segment must fail with error
     let result = client.try_create_segment(&segment);
-    assert!(
-        result.is_err(),
-        "Creating a duplicate segment must fail"
-    );
+    assert!(result.is_err(), "Creating a duplicate segment must fail");
 }
 
 #[test]
@@ -455,9 +450,13 @@ fn test_merkle_log_corrupted_inclusion_proof_verification_fails() {
     let seg = LogSegmentId::new("proof-err").unwrap();
     let mut log = MerkleLog::new(seg);
 
-    let seq1 = log.append(1000, "alice", "create", "patient:1", "ok").unwrap();
+    let seq1 = log
+        .append(1000, "alice", "create", "patient:1", "ok")
+        .unwrap();
     let _seq2 = log.append(1001, "bob", "read", "patient:1", "ok").unwrap();
-    let _seq3 = log.append(1002, "carol", "modify", "patient:1", "ok").unwrap();
+    let _seq3 = log
+        .append(1002, "carol", "modify", "patient:1", "ok")
+        .unwrap();
 
     let root = log.current_root();
     let mut proof = log.inclusion_proof(seq1).unwrap();
@@ -479,7 +478,9 @@ fn test_merkle_log_inclusion_proof_against_wrong_root_fails() {
     let seg = LogSegmentId::new("root-err").unwrap();
     let mut log = MerkleLog::new(seg);
 
-    let seq = log.append(1000, "alice", "read", "patient:1", "ok").unwrap();
+    let seq = log
+        .append(1000, "alice", "read", "patient:1", "ok")
+        .unwrap();
     let proof = log.inclusion_proof(seq).unwrap();
 
     let wrong_root = [0x55u8; 32];
@@ -496,7 +497,8 @@ fn test_consistency_proof_corrupted_proof_hash_fails() {
     let mut log = MerkleLog::new(seg);
 
     for i in 1..=4 {
-        log.append(1000 + i, "actor", "action", "target", "ok").unwrap();
+        log.append(1000 + i, "actor", "action", "target", "ok")
+            .unwrap();
     }
 
     let root_v1 = log.current_root();
@@ -504,11 +506,14 @@ fn test_consistency_proof_corrupted_proof_hash_fails() {
 
     // Advance log
     for i in 5..=8 {
-        log.append(1000 + i, "actor", "action", "target", "ok").unwrap();
+        log.append(1000 + i, "actor", "action", "target", "ok")
+            .unwrap();
     }
 
     let prover = ConsistencyProver::new(
-        (1..=8).map(|s| log.get_entry(s).unwrap().entry_hash).collect(),
+        (1..=8)
+            .map(|s| log.get_entry(s).unwrap().entry_hash)
+            .collect(),
     );
 
     let mut proof = prover.generate(root_v1, size_v1).unwrap();
@@ -601,18 +606,30 @@ fn test_audit_error_display_formatting_all_variants() {
         AuditError::InvalidSearchToken,
         AuditError::EntryNotFound { sequence: 99 },
         AuditError::InvalidSegmentId,
-        AuditError::InsufficientWitnesses { required: 3, present: 1 },
-        AuditError::RetentionPolicyViolation { sequence: 5, retained_until: 10000 },
+        AuditError::InsufficientWitnesses {
+            required: 3,
+            present: 1,
+        },
+        AuditError::RetentionPolicyViolation {
+            sequence: 5,
+            retained_until: 10000,
+        },
         AuditError::RootMismatch,
         AuditError::InternalError("internal failure"),
         AuditError::SegmentNotFound,
         AuditError::SearchKeyNotSet,
-        AuditError::OutOfOrderTimestamp { sequence: 3, supplied: 100, minimum: 200 },
+        AuditError::OutOfOrderTimestamp {
+            sequence: 3,
+            supplied: 100,
+            minimum: 200,
+        },
     ];
 
     for err in errs {
         let msg = format!("{}", err);
-        assert!(!msg.is_empty(), "AuditError display output must not be empty");
+        assert!(
+            !msg.is_empty(),
+            "AuditError display output must not be empty"
+        );
     }
 }
-

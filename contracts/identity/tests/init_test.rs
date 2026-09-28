@@ -4,9 +4,8 @@
 extern crate std;
 
 use identity::{
-    events::OwnerStatusChangedEvent,
-    recovery::RecoveryError,
-    IdentityContract, IdentityContractClient,
+    events::OwnerStatusChangedEvent, recovery::RecoveryError, IdentityContract,
+    IdentityContractClient,
 };
 use soroban_sdk::{
     symbol_short,
@@ -111,7 +110,10 @@ fn test_initialize_emits_event() {
     client.initialize(&owner);
 
     let events = env.events().all();
-    let event = events.events().last().expect("OwnerStatusChangedEvent expected");
+    let event = events
+        .events()
+        .last()
+        .expect("OwnerStatusChangedEvent expected");
     let ContractEventBody::V0(body) = &event.body;
 
     let expected_topics: Vec<Val> =
@@ -384,4 +386,3 @@ fn test_post_initialization_set_zk_verifier_flow() {
         Err(Ok(RecoveryError::Unauthorized))
     );
 }
-

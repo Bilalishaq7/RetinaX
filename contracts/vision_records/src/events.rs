@@ -6,7 +6,7 @@ use crate::circuit_breaker::PauseScope;
 use crate::emergency::EmergencyCondition;
 use crate::errors::{ErrorCategory, ErrorContext, ErrorSeverity};
 use crate::{AccessLevel, RecordType, Role, VerificationStatus};
-use soroban_sdk::{symbol_short, Address, Env, String};
+use soroban_sdk::{symbol_short, Address, Env, String, Vec};
 
 /// Event published when the contract is initialized.
 #[soroban_sdk::contracttype]
@@ -1166,6 +1166,168 @@ pub fn publish_sensitivity_set(
         record_id,
         sensitivity,
         set_by,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Event published when a custom permission is granted to a user.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionGrantedEvent {
+    pub user: Address,
+    pub permission: crate::Permission,
+    pub granted_by: Address,
+    pub timestamp: u64,
+}
+
+/// Event published when a custom permission is revoked from a user.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PermissionRevokedEvent {
+    pub user: Address,
+    pub permission: crate::Permission,
+    pub revoked_by: Address,
+    pub timestamp: u64,
+}
+
+/// Event published when a user delegates a role to another user.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RoleDelegatedEvent {
+    pub delegator: Address,
+    pub delegatee: Address,
+    pub role: Role,
+    pub expires_at: u64,
+    pub timestamp: u64,
+}
+
+/// Event published when an ACL group is created or its permissions replaced.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AclGroupCreatedEvent {
+    pub group_name: String,
+    pub permissions: Vec<crate::Permission>,
+    pub created_by: Address,
+    pub timestamp: u64,
+}
+
+/// Event published when a user joins or leaves an ACL group.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AclGroupMembershipEvent {
+    pub user: Address,
+    pub group_name: String,
+    pub changed_by: Address,
+    pub timestamp: u64,
+}
+
+/// Publishes an event when a custom permission is granted.
+pub fn publish_permission_granted(
+    env: &Env,
+    user: Address,
+    permission: crate::Permission,
+    granted_by: Address,
+) {
+    let topics = (symbol_short!("PERM_GRT"), user.clone());
+    let data = PermissionGrantedEvent {
+        user,
+        permission,
+        granted_by,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when a custom permission is revoked.
+pub fn publish_permission_revoked(
+    env: &Env,
+    user: Address,
+    permission: crate::Permission,
+    revoked_by: Address,
+) {
+    let topics = (symbol_short!("PERM_REV"), user.clone());
+    let data = PermissionRevokedEvent {
+        user,
+        permission,
+        revoked_by,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when a role is delegated.
+pub fn publish_role_delegated(
+    env: &Env,
+    delegator: Address,
+    delegatee: Address,
+    role: Role,
+    expires_at: u64,
+) {
+    let topics = (
+        symbol_short!("ROLE_DEL"),
+        delegator.clone(),
+        delegatee.clone(),
+    );
+    let data = RoleDelegatedEvent {
+        delegator,
+        delegatee,
+        role,
+        expires_at,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when an ACL group is created or its permissions replaced.
+pub fn publish_acl_group_created(
+    env: &Env,
+    group_name: String,
+    permissions: Vec<crate::Permission>,
+    created_by: Address,
+) {
+    let topics = (symbol_short!("GRP_CRT"), group_name.clone());
+    let data = AclGroupCreatedEvent {
+        group_name,
+        permissions,
+        created_by,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when a user is added to an ACL group.
+pub fn publish_acl_group_member_added(
+    env: &Env,
+    user: Address,
+    group_name: String,
+    changed_by: Address,
+) {
+    publish_acl_group_membership(env, symbol_short!("GRP_ADD"), user, group_name, changed_by);
+}
+
+/// Publishes an event when a user is removed from an ACL group.
+pub fn publish_acl_group_member_removed(
+    env: &Env,
+    user: Address,
+    group_name: String,
+    changed_by: Address,
+) {
+    publish_acl_group_membership(env, symbol_short!("GRP_REM"), user, group_name, changed_by);
+}
+
+fn publish_acl_group_membership(
+    env: &Env,
+    action: soroban_sdk::Symbol,
+    user: Address,
+    group_name: String,
+    changed_by: Address,
+) {
+    let topics = (action, user.clone(), group_name.clone());
+    let data = AclGroupMembershipEvent {
+        user,
+        group_name,
+        changed_by,
         timestamp: env.ledger().timestamp(),
     };
     env.events().publish(topics, data);

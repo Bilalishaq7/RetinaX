@@ -6,10 +6,18 @@
 )]
 
 use super::{
-    AccessLevel, ConsentType, CredentialType, Permission, RecordType, Role, SensitivityLevel,
-    TimeRestriction, VisionRecordsContract, VisionRecordsContractClient,
+    AccessLevel, ConsentType, ContractError, CredentialType, Permission, RecordType, Role,
+    SensitivityLevel, TimeRestriction, VisionRecordsContract, VisionRecordsContractClient,
 };
-use soroban_sdk::{testutils::Address as _, testutils::Ledger as _, Address, Env, String, Vec};
+use crate::events::{
+    AclGroupCreatedEvent, AclGroupMembershipEvent, PermissionGrantedEvent, PermissionRevokedEvent,
+    RoleDelegatedEvent,
+};
+use crate::rbac::MAX_RBAC_STRING_LEN;
+use soroban_sdk::{
+    symbol_short, testutils::Address as _, testutils::Events as _, testutils::Ledger as _, vec,
+    Address, Env, IntoVal, String, Vec,
+};
 
 fn setup_test() -> (Env, VisionRecordsContractClient<'static>, Address) {
     let env = Env::default();
@@ -635,8 +643,18 @@ fn test_happy_path_acl_group_lifecycle_endpoints() {
     let user_a = Address::generate(&env);
     let user_b = Address::generate(&env);
 
-    client.register_user(&admin, &user_a, &Role::Patient, &String::from_str(&env, "UserA"));
-    client.register_user(&admin, &user_b, &Role::Staff, &String::from_str(&env, "UserB"));
+    client.register_user(
+        &admin,
+        &user_a,
+        &Role::Patient,
+        &String::from_str(&env, "UserA"),
+    );
+    client.register_user(
+        &admin,
+        &user_b,
+        &Role::Staff,
+        &String::from_str(&env, "UserB"),
+    );
 
     // 1. Create ACL group with permissions
     let group_name = String::from_str(&env, "ClinicalAuditors");
@@ -668,8 +686,12 @@ fn test_happy_path_acl_group_lifecycle_endpoints() {
     let group_2 = String::from_str(&env, "SupportTeam");
     let mut perms_2 = Vec::new(&env);
     perms_2.push_back(Permission::ManageAccess);
-    assert!(client.try_create_acl_group(&admin, &group_2, &perms_2).is_ok());
-    assert!(client.try_add_user_to_group(&admin, &user_a, &group_2).is_ok());
+    assert!(client
+        .try_create_acl_group(&admin, &group_2, &perms_2)
+        .is_ok());
+    assert!(client
+        .try_add_user_to_group(&admin, &user_a, &group_2)
+        .is_ok());
 
     let groups_a_updated = client.get_user_groups(&user_a);
     assert_eq!(groups_a_updated.len(), 2);
@@ -759,8 +781,18 @@ fn test_happy_path_set_record_sensitivity_endpoint() {
     let patient = Address::generate(&env);
     let provider = Address::generate(&env);
 
-    client.register_user(&admin, &patient, &Role::Patient, &String::from_str(&env, "PatientJane"));
-    client.register_user(&admin, &provider, &Role::Optometrist, &String::from_str(&env, "ProviderDan"));
+    client.register_user(
+        &admin,
+        &patient,
+        &Role::Patient,
+        &String::from_str(&env, "PatientJane"),
+    );
+    client.register_user(
+        &admin,
+        &provider,
+        &Role::Optometrist,
+        &String::from_str(&env, "ProviderDan"),
+    );
 
     let data_hash = String::from_str(&env, "a1b2c3d4e5f6");
     let record_id = client.add_record(
@@ -772,19 +804,13 @@ fn test_happy_path_set_record_sensitivity_endpoint() {
     );
 
     // Provider sets record sensitivity to Confidential
-    let res_provider = client.try_set_record_sensitivity(
-        &provider,
-        &record_id,
-        &SensitivityLevel::Confidential,
-    );
+    let res_provider =
+        client.try_set_record_sensitivity(&provider, &record_id, &SensitivityLevel::Confidential);
     assert!(res_provider.is_ok());
 
     // Admin updates record sensitivity to Restricted
-    let res_admin = client.try_set_record_sensitivity(
-        &admin,
-        &record_id,
-        &SensitivityLevel::Restricted,
-    );
+    let res_admin =
+        client.try_set_record_sensitivity(&admin, &record_id, &SensitivityLevel::Restricted);
     assert!(res_admin.is_ok());
 }
 
@@ -797,10 +823,30 @@ fn test_happy_path_check_permission_all_roles() {
     let staff = Address::generate(&env);
     let patient = Address::generate(&env);
 
-    client.register_user(&admin, &ophthalmologist, &Role::Ophthalmologist, &String::from_str(&env, "Ophth"));
-    client.register_user(&admin, &optometrist, &Role::Optometrist, &String::from_str(&env, "Opto"));
-    client.register_user(&admin, &staff, &Role::Staff, &String::from_str(&env, "Staff"));
-    client.register_user(&admin, &patient, &Role::Patient, &String::from_str(&env, "Patient"));
+    client.register_user(
+        &admin,
+        &ophthalmologist,
+        &Role::Ophthalmologist,
+        &String::from_str(&env, "Ophth"),
+    );
+    client.register_user(
+        &admin,
+        &optometrist,
+        &Role::Optometrist,
+        &String::from_str(&env, "Opto"),
+    );
+    client.register_user(
+        &admin,
+        &staff,
+        &Role::Staff,
+        &String::from_str(&env, "Staff"),
+    );
+    client.register_user(
+        &admin,
+        &patient,
+        &Role::Patient,
+        &String::from_str(&env, "Patient"),
+    );
 
     // Admin has full permissions
     assert!(client.check_permission(&admin, &Permission::SystemAdmin));
@@ -836,4 +882,207 @@ fn test_happy_path_check_permission_all_roles() {
     assert!(!client.check_permission(&patient, &Permission::WriteRecord));
     assert!(!client.check_permission(&patient, &Permission::ManageAccess));
     assert!(!client.check_permission(&patient, &Permission::ReadAnyRecord));
+}
+
+// ======================== RBAC events (#38) ========================
+
+fn register(
+    env: &Env,
+    client: &VisionRecordsContractClient,
+    admin: &Address,
+    role: Role,
+) -> Address {
+    let user = Address::generate(env);
+    client.register_user(admin, &user, &role, &String::from_str(env, "User"));
+    user
+}
+
+#[test]
+fn test_permission_changes_emit_events_only_on_change() {
+    let (env, client, admin) = setup_test();
+    let staff = register(&env, &client, &admin, Role::Staff);
+
+    client.grant_custom_permission(&admin, &staff, &Permission::WriteRecord);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (symbol_short!("PERM_GRT"), staff.clone()).into_val(&env),
+                PermissionGrantedEvent {
+                    user: staff.clone(),
+                    permission: Permission::WriteRecord,
+                    granted_by: admin.clone(),
+                    timestamp: env.ledger().timestamp(),
+                }
+                .into_val(&env),
+            ),
+        ]
+    );
+    // Granting a permission already held changes nothing.
+    client.grant_custom_permission(&admin, &staff, &Permission::WriteRecord);
+    assert!(env.events().all().events().is_empty());
+
+    client.revoke_custom_permission(&admin, &staff, &Permission::WriteRecord);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (symbol_short!("PERM_REV"), staff.clone()).into_val(&env),
+                PermissionRevokedEvent {
+                    user: staff.clone(),
+                    permission: Permission::WriteRecord,
+                    revoked_by: admin.clone(),
+                    timestamp: env.ledger().timestamp(),
+                }
+                .into_val(&env),
+            ),
+        ]
+    );
+    client.revoke_custom_permission(&admin, &staff, &Permission::WriteRecord);
+    assert!(env.events().all().events().is_empty());
+}
+
+#[test]
+fn test_role_delegation_emits_event() {
+    let (env, client, admin) = setup_test();
+    let delegator = register(&env, &client, &admin, Role::Optometrist);
+    let delegatee = Address::generate(&env);
+    let expires_at = env.ledger().timestamp() + 86_400;
+
+    client.delegate_role(&delegator, &delegatee, &Role::Optometrist, &expires_at);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (
+                    symbol_short!("ROLE_DEL"),
+                    delegator.clone(),
+                    delegatee.clone()
+                )
+                    .into_val(&env),
+                RoleDelegatedEvent {
+                    delegator,
+                    delegatee,
+                    role: Role::Optometrist,
+                    expires_at,
+                    timestamp: env.ledger().timestamp(),
+                }
+                .into_val(&env),
+            ),
+        ]
+    );
+}
+
+#[test]
+fn test_acl_group_changes_emit_events_only_on_change() {
+    let (env, client, admin) = setup_test();
+    let user = Address::generate(&env);
+    let group = String::from_str(&env, "researchers");
+    let permissions = vec![&env, Permission::ReadAnyRecord];
+
+    client.create_acl_group(&admin, &group, &permissions);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (symbol_short!("GRP_CRT"), group.clone()).into_val(&env),
+                AclGroupCreatedEvent {
+                    group_name: group.clone(),
+                    permissions,
+                    created_by: admin.clone(),
+                    timestamp: env.ledger().timestamp(),
+                }
+                .into_val(&env),
+            ),
+        ]
+    );
+
+    let membership = AclGroupMembershipEvent {
+        user: user.clone(),
+        group_name: group.clone(),
+        changed_by: admin.clone(),
+        timestamp: env.ledger().timestamp(),
+    };
+    client.add_user_to_group(&admin, &user, &group);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (symbol_short!("GRP_ADD"), user.clone(), group.clone()).into_val(&env),
+                membership.clone().into_val(&env),
+            ),
+        ]
+    );
+    client.add_user_to_group(&admin, &user, &group);
+    assert!(env.events().all().events().is_empty());
+
+    client.remove_user_from_group(&admin, &user, &group);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (symbol_short!("GRP_REM"), user.clone(), group.clone()).into_val(&env),
+                membership.into_val(&env),
+            ),
+        ]
+    );
+    client.remove_user_from_group(&admin, &user, &group);
+    assert!(env.events().all().events().is_empty());
+    assert!(client.get_user_groups(&user).is_empty());
+}
+
+// ======================== RBAC string validation (#39) ========================
+
+#[test]
+fn test_rbac_strings_are_length_bounded() {
+    let (env, client, admin) = setup_test();
+    let user = Address::generate(&env);
+    let empty = String::from_str(&env, "");
+    let too_long = String::from_bytes(&env, &[b'g'; MAX_RBAC_STRING_LEN as usize + 1]);
+    let longest = String::from_bytes(&env, &[b'g'; MAX_RBAC_STRING_LEN as usize]);
+    let invalid = Err(Ok(ContractError::InvalidInput));
+
+    for name in [&empty, &too_long] {
+        assert_eq!(
+            client.try_create_acl_group(&admin, name, &Vec::new(&env)),
+            invalid
+        );
+        assert_eq!(client.try_add_user_to_group(&admin, &user, name), invalid);
+        assert_eq!(
+            client.try_remove_user_from_group(&admin, &user, name),
+            invalid
+        );
+    }
+    client.create_acl_group(&admin, &longest, &Vec::new(&env));
+    client.add_user_to_group(&admin, &user, &longest);
+
+    let create_policy = |policy_id: &String, name: &String| {
+        client.try_create_access_policy(
+            &admin,
+            policy_id,
+            name,
+            &Role::Optometrist,
+            &TimeRestriction::None,
+            &CredentialType::None,
+            &SensitivityLevel::Standard,
+            &false,
+        )
+    };
+    for bad in [&empty, &too_long] {
+        assert_eq!(create_policy(bad, &longest), invalid);
+        assert_eq!(create_policy(&longest, bad), invalid);
+    }
+    assert_eq!(create_policy(&longest, &longest), Ok(Ok(())));
 }
