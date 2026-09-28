@@ -187,6 +187,52 @@ fn test_update_insurance_info() {
 }
 
 #[test]
+fn test_update_insurance_rejects_oversized_hash_fields() {
+    let (env, client, _admin) = setup_test();
+
+    let patient = Address::generate(&env);
+    client.create_profile(
+        &patient,
+        &patient,
+        &String::from_str(&env, "hash_dob_123"),
+        &String::from_str(&env, "hash_gender_456"),
+        &String::from_str(&env, "hash_blood_789"),
+    );
+
+    let oversized = "a".repeat(129);
+    let valid = String::from_str(&env, "valid_hash");
+
+    let cases = [
+        InsuranceInfo {
+            provider_hash: String::from_str(&env, &oversized),
+            policy_id_hash: valid.clone(),
+            group_id_hash: valid.clone(),
+            verified_at: env.ledger().timestamp(),
+        },
+        InsuranceInfo {
+            provider_hash: valid.clone(),
+            policy_id_hash: String::from_str(&env, &oversized),
+            group_id_hash: valid.clone(),
+            verified_at: env.ledger().timestamp(),
+        },
+        InsuranceInfo {
+            provider_hash: valid.clone(),
+            policy_id_hash: valid,
+            group_id_hash: String::from_str(&env, &oversized),
+            verified_at: env.ledger().timestamp(),
+        },
+    ];
+
+    for insurance in cases {
+        let result = client.try_update_insurance(&patient, &patient, &Some(insurance));
+        assert_eq!(result, Err(Ok(ContractError::InvalidInput)));
+    }
+
+    let profile = client.get_profile(&patient);
+    assert!(profile.insurance_info.is_none());
+}
+
+#[test]
 fn test_add_medical_history_reference() {
     let (env, client, _admin) = setup_test();
 

@@ -57,6 +57,7 @@ pub use errors::{create_error_context, log_error};
 
 /// Re-export types from submodules used directly in the contract impl.
 pub use audit::{AccessAction, AccessResult};
+pub use emergency::{EmergencyAccess, EmergencyAuditEntry, EmergencyCondition, EmergencyStatus};
 pub use examination::{
     EyeExamination, IntraocularPressure, OptFundusPhotography, OptRetinalImaging, OptVisualField,
     SlitLampFindings, VisualAcuity,
@@ -2040,6 +2041,165 @@ impl VisionRecordsContract {
     /// Check if patient profile exists
     pub fn profile_exists(env: Env, patient: Address) -> bool {
         patient_profile::profile_exists(&env, &patient)
+    }
+
+    /// Grant time-limited emergency access to a verified provider.
+    pub fn grant_emergency_access(
+        env: Env,
+        requester: Address,
+        patient: Address,
+        condition: EmergencyCondition,
+        attestation: String,
+        duration_seconds: u64,
+        emergency_contacts: Vec<Address>,
+    ) -> Result<u64, ContractError> {
+        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
+        requester.require_auth();
+
+        validation::validate_emergency_attestation(&attestation)?;
+        validation::validate_emergency_duration(duration_seconds)?;
+
+        let provider =
+            provider::get_provider(&env, &requester).ok_or(ContractError::ProviderNotFound)?;
+        if !provider.is_active || provider.verification_status != VerificationStatus::Verified {
+            return Err(ContractError::Unauthorized);
+        }
+
+        let access_id = emergency::increment_emergency_counter(&env);
+        let granted_at = env.ledger().timestamp();
+        let expires_at = granted_at.saturating_add(duration_seconds);
+        let access = EmergencyAccess {
+            id: access_id,
+            patient: patient.clone(),
+            requester: requester.clone(),
+            condition: condition.clone(),
+            attestation,
+            granted_at,
+            expires_at,
+            status: EmergencyStatus::Active,
+            notified_contacts: emergency_contacts.clone(),
+        };
+        emergency::set_emergency_access(&env, &access);
+        emergency::add_audit_entry(
+            &env,
+            &EmergencyAuditEntry {
+                access_id,
+                actor: requester.clone(),
+                action: String::from_str(&env, "GRANTED"),
+                timestamp: granted_at,
+            },
+        );
+
+        events::publish_emergency_access_granted(
+            &env,
+            access_id,
+            patient.clone(),
+            requester.clone(),
+            condition,
+            expires_at,
+        );
+        for i in 0..emergency_contacts.len() {
+            if let Some(contact) = emergency_contacts.get(i) {
+                events::publish_emergency_contact_notified(
+                    &env,
+                    access_id,
+                    patient.clone(),
+                    contact,
+                );
+            }
+        }
+
+        Ok(access_id)
+    }
+
+    pub fn get_emergency_access(
+        env: Env,
+        access_id: u64,
+    ) -> Result<EmergencyAccess, ContractError> {
+        emergency::get_emergency_access(&env, access_id)
+            .ok_or(ContractError::EmergencyAccessNotFound)
+    }
+
+    pub fn check_emergency_access(
+        env: Env,
+        patient: Address,
+        requester: Address,
+    ) -> Option<EmergencyAccess> {
+        emergency::has_active_emergency_access(&env, &patient, &requester)
+    }
+
+    pub fn get_patient_emergency_accesses(env: Env, patient: Address) -> Vec<EmergencyAccess> {
+        emergency::get_patient_emergency_accesses(&env, &patient)
+    }
+
+    pub fn get_emergency_audit_trail(env: Env, access_id: u64) -> Vec<EmergencyAuditEntry> {
+        emergency::get_audit_entries(&env, access_id)
+    }
+
+    pub fn revoke_emergency_access(
+        env: Env,
+        caller: Address,
+        access_id: u64,
+    ) -> Result<(), ContractError> {
+        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
+        caller.require_auth();
+
+        let access = emergency::get_emergency_access(&env, access_id)
+            .ok_or(ContractError::EmergencyAccessNotFound)?;
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&ADMIN)
+            .ok_or(ContractError::NotInitialized)?;
+        if caller != access.patient && caller != access.requester && caller != admin {
+            return Err(ContractError::Unauthorized);
+        }
+
+        let revoked = emergency::revoke_emergency_access(&env, access_id)
+            .ok_or(ContractError::EmergencyAccessNotFound)?;
+        let timestamp = env.ledger().timestamp();
+        emergency::add_audit_entry(
+            &env,
+            &EmergencyAuditEntry {
+                access_id,
+                actor: caller.clone(),
+                action: String::from_str(&env, "REVOKED"),
+                timestamp,
+            },
+        );
+        events::publish_emergency_access_revoked(&env, access_id, revoked.patient, caller);
+
+        Ok(())
+    }
+
+    pub fn access_record_via_emergency(
+        env: Env,
+        requester: Address,
+        patient: Address,
+        record_id: Option<u64>,
+    ) -> Result<(), ContractError> {
+        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
+        requester.require_auth();
+
+        let access = emergency::has_active_emergency_access(&env, &patient, &requester)
+            .ok_or(ContractError::AccessDenied)?;
+        let timestamp = env.ledger().timestamp();
+        emergency::add_audit_entry(
+            &env,
+            &EmergencyAuditEntry {
+                access_id: access.id,
+                actor: requester.clone(),
+                action: String::from_str(&env, "ACCESSED"),
+                timestamp,
+            },
+        );
+        events::publish_emergency_access_used(&env, access.id, patient, requester, record_id);
+
+        Ok(())
+    }
+
+    pub fn expire_emergency_accesses(env: Env) -> u32 {
+        emergency::expire_emergency_accesses(&env)
     }
 
     /// Grants a custom permission to a user.

@@ -16,6 +16,10 @@ doctest = false
 name = "property"
 path = "tests/property/main.rs"
 
+[[test]]
+name = "emergency"
+path = "tests/emergency.rs"
+
 [dependencies]
 soroban-sdk = { workspace = true }
 teye-common = { path = "../common", package = "common", features = ["std"]}
