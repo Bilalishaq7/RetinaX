@@ -528,7 +528,10 @@ fn test_prepare_stake_balance_boundary() {
 
     // Exactly the balance — should succeed
     let result = client.try_prepare_stake(&staker, &1_000);
-    assert!(result.is_ok(), "prepare_stake at exact balance should succeed");
+    assert!(
+        result.is_ok(),
+        "prepare_stake at exact balance should succeed"
+    );
 
     // One more than the balance — should fail
     let result2 = client.try_prepare_stake(&staker, &1_001);

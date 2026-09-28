@@ -155,7 +155,10 @@ function initRBACSimulator() {
 
   if (durSlider && durVal) {
     durSlider.addEventListener('input', (e) => {
-      durVal.textContent = e.target.value;
+      const hours = e.target.value;
+      durVal.textContent = hours;
+      durSlider.setAttribute('aria-valuenow', hours);
+      durSlider.setAttribute('aria-valuetext', `${hours} Hours`);
       updateRBACPreview();
     });
   }
@@ -186,6 +189,9 @@ function initRBACSimulator() {
     const doctor = doctorSelect ? doctorSelect.value : 'GAB...DR_SMITH_OPTOMETRY';
     const hours = durSlider ? durSlider.value : '24';
     const statusStr = executed ? 'SUCCESS (LEDGER_ENFORCED)' : 'PENDING_SIGNATURE';
+    const durationText = (typeof window !== 'undefined' && window.RetinaXUtils && window.RetinaXUtils.formatDuration)
+      ? window.RetinaXUtils.formatDuration(Number(hours) * 3600)
+      : `${hours} Hours`;
 
     if (previewCode) {
       previewCode.textContent = `// Soroban Call: contracts/vision_records::grant_access()
@@ -193,7 +199,7 @@ fn grant_access(env: Env, patient: Address, doctor: Address, ttl: u64) {
     patient.require_auth(); // Validated GDC...PATIENT_KEY_99X
     
     // Target Clinic: ${doctor}
-    // Duration TTL: ${hours} Hours (${hours * 3600} Seconds)
+    // Duration TTL: ${durationText} (${hours * 3600} Seconds)
     let grant = AccessGrant {
         granted_at: env.ledger().timestamp(),
         expires_at: env.ledger().timestamp() + ${hours * 3600},
@@ -222,6 +228,8 @@ function initZKSimulator() {
     acuitySlider.addEventListener('input', (e) => {
       const val = e.target.value;
       acuityVal.textContent = `20/${val}`;
+      acuitySlider.setAttribute('aria-valuenow', val);
+      acuitySlider.setAttribute('aria-valuetext', `20/${val}`);
       updateZKPreview();
     });
   }
@@ -319,6 +327,9 @@ function initFHIRSimulator() {
 
       setTimeout(() => {
         convertFhirBtn.textContent = 'Generate FHIR v4 Payload';
+        const fhirEffectiveDate = (typeof window !== 'undefined' && window.RetinaXUtils && window.RetinaXUtils.formatFHIRDate)
+          ? window.RetinaXUtils.formatFHIRDate(new Date())
+          : '2026-08-06T23:45:00Z';
 
         if (type === 'iop') {
           if (previewFhirCode) {
@@ -338,7 +349,7 @@ function initFHIRSimulator() {
     "unit": "mmHg",
     "system": "http://unitsofmeasure.org"
   },
-  "effectiveDateTime": "2026-08-06T23:45:00Z"
+  "effectiveDateTime": "${fhirEffectiveDate}"
 }`;
           }
         } else {
@@ -355,7 +366,7 @@ function initFHIRSimulator() {
   },
   "subject": { "reference": "Patient/GDC...PATIENT_KEY_99X" },
   "conclusion": "Normal refraction. Prescription: Right Eye -1.25 SPH, Left Eye -1.00 SPH",
-  "effectiveDateTime": "2026-08-06T23:45:00Z"
+  "effectiveDateTime": "${fhirEffectiveDate}"
 }`;
           }
         }

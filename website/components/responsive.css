@@ -1,0 +1,22 @@
+/* ==========================================================================
+   RetinaX — Responsive Adjustments
+   Design System: RetinaX Clinical (Serene Clinical White, Slate Navy, Medical Teal)
+   Source: split from website/styles.css — see website/styles.css aggregator
+   ========================================================================== */
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+  .hero-grid { grid-template-columns: 1fr; }
+  .feature-grid, .feature-grid.reverse { grid-template-columns: 1fr; }
+  .stats-bar { grid-template-columns: repeat(2, 1fr); }
+  .contract-grid { grid-template-columns: 1fr 1fr; }
+  .demo-tab-panel.active { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .hero-title { font-size: 2.3rem; }
+  .nav-links { display: none; }
+  .stats-bar { grid-template-columns: 1fr; }
+  .contract-grid { grid-template-columns: 1fr; }
+  .footer-grid { grid-template-columns: 1fr; }
+}

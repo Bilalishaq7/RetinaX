@@ -1,6 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
-use identity::{credential::CredentialError, IdentityContract, IdentityContractClient};
+use identity::{IdentityContract, IdentityContractClient};
 use soroban_sdk::{testutils::Address as _, testutils::Ledger as _, Address, BytesN, Env};
 
 #[test]

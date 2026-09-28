@@ -88,6 +88,9 @@
    * @returns {string}
    */
   function escHtml(str) {
+    if (typeof window !== 'undefined' && window.RetinaXUtils && window.RetinaXUtils.escapeHtml) {
+      return window.RetinaXUtils.escapeHtml(str);
+    }
     if (typeof str !== 'string') return '';
     return str
       .replace(/&/g,  '&amp;')
@@ -103,6 +106,9 @@
    * @returns {string}
    */
   function fmtNum(n) {
+    if (typeof window !== 'undefined' && window.RetinaXUtils && window.RetinaXUtils.formatCompactNumber) {
+      return window.RetinaXUtils.formatCompactNumber(n);
+    }
     const num = parseInt(n, 10);
     if (isNaN(num)) return '—';
     if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
