@@ -2078,9 +2078,12 @@ name = "test-framework"
 version = "0.1.0"
 dependencies = [
  "common",
+ "identity",
+ "key_manager",
  "proptest",
  "soroban-sdk",
  "staking",
+ "vision_records",
 ]
 
 [[package]]
