@@ -10,16 +10,24 @@ use alloc::{
 pub mod appointment;
 pub mod audit;
 pub mod circuit_breaker;
+pub mod consent_management;
 pub mod emergency;
 pub mod errors;
 pub mod events;
 pub mod examination;
+pub mod insurance;
 pub mod patient_profile;
 pub mod prescription;
 pub mod provider;
 pub mod rate_limit;
 pub mod rbac;
 pub mod validation;
+
+pub use consent_management::{ConsentGrant, ConsentType};
+pub use emergency::{
+    EmergencyAccess, EmergencyAuditEntry, EmergencyCondition, EmergencyStatus,
+};
+
 
 use key_manager::{DerivedKey, KeyManagerContractClient};
 use soroban_sdk::{
@@ -54,10 +62,8 @@ pub use examination::{
     EyeExamination, IntraocularPressure, OptFundusPhotography, OptRetinalImaging, OptVisualField,
     SlitLampFindings, VisualAcuity,
 };
-pub use patient_profile::{
-    EmergencyContact, InsuranceInfo, OptionalEmergencyContact, OptionalInsuranceInfo,
-    PatientProfile,
-};
+pub use insurance::{InsuranceInfo, OptionalInsuranceInfo};
+pub use patient_profile::{EmergencyContact, OptionalEmergencyContact, PatientProfile};
 pub use prescription::{LensType, OptionalContactLensData, Prescription, PrescriptionData};
 
 /// Storage keys for the contract
@@ -153,13 +159,7 @@ pub use rbac::{
     TimeRestriction,
 };
 
-#[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ConsentType {
-    Treatment,
-    Research,
-    Sharing,
-}
+
 
 /// Access levels for record sharing
 #[contracttype]
@@ -283,17 +283,6 @@ pub struct AccessGrant {
     pub expires_at: u64,
 }
 
-/// Consent grant structure for patient-to-provider consent tracking
-#[contracttype]
-#[derive(Clone, Debug)]
-pub struct ConsentGrant {
-    pub patient: Address,
-    pub grantee: Address,
-    pub consent_type: ConsentType,
-    pub granted_at: u64,
-    pub expires_at: u64,
-    pub revoked: bool,
-}
 
 /// Input for batch record creation
 #[contracttype]
@@ -1319,6 +1308,14 @@ impl VisionRecordsContract {
         }
     }
 
+    fn get_record_raw(env: &Env, record_id: u64) -> Result<VisionRecord, ContractError> {
+        let key = (symbol_short!("RECORD"), record_id);
+        env.storage()
+            .persistent()
+            .get(&key)
+            .ok_or(ContractError::RecordNotFound)
+    }
+
     /// Add eye examination details for an existing record
     #[allow(clippy::too_many_arguments)]
     pub fn add_eye_examination(
@@ -1336,7 +1333,7 @@ impl VisionRecordsContract {
         circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
         caller.require_auth();
 
-        let record = Self::get_record(env.clone(), caller.clone(), record_id)?;
+        let record = Self::get_record_raw(&env, record_id)?;
 
         let has_perm = if caller == record.provider {
             rbac::has_permission(&env, &caller, &Permission::WriteRecord)
@@ -1408,7 +1405,7 @@ impl VisionRecordsContract {
         circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
         caller.require_auth();
 
-        let record = Self::get_record(env.clone(), caller.clone(), record_id)?;
+        let record = Self::get_record_raw(&env, record_id)?;
 
         let has_perm = if caller == record.provider {
             rbac::has_permission(&env, &caller, &Permission::WriteRecord)
@@ -1464,7 +1461,7 @@ impl VisionRecordsContract {
         record_id: u64,
     ) -> Result<EyeExamination, ContractError> {
         caller.require_auth();
-        let record = Self::get_record(env.clone(), caller.clone(), record_id)?;
+        let record = Self::get_record_raw(&env, record_id)?;
 
         let has_perm = if caller == record.patient || caller == record.provider {
             true
@@ -1500,7 +1497,7 @@ impl VisionRecordsContract {
     ) -> Result<(), ContractError> {
         caller.require_auth();
 
-        let record = Self::get_record(env.clone(), caller.clone(), record_id)?;
+        let record = Self::get_record_raw(&env, record_id)?;
         let has_perm = if caller == record.provider {
             rbac::has_permission(&env, &caller, &Permission::WriteRecord)
         } else {
@@ -1865,25 +1862,7 @@ impl VisionRecordsContract {
         consent_type: ConsentType,
         duration_seconds: u64,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        patient.require_auth();
-        if duration_seconds == 0 {
-            return Err(ContractError::InvalidInput);
-        }
-        let now = env.ledger().timestamp();
-        let consent = ConsentGrant {
-            patient: patient.clone(),
-            grantee: grantee.clone(),
-            consent_type: consent_type.clone(),
-            granted_at: now,
-            expires_at: now.saturating_add(duration_seconds),
-            revoked: false,
-        };
-        let key = consent_key(&patient, &grantee);
-        env.storage().persistent().set(&key, &consent);
-        extend_ttl_access_key(&env, &key);
-        events::publish_consent_granted(&env, patient, grantee, consent_type, consent.expires_at);
-        Ok(())
+        consent_management::grant_consent(&env, &patient, &grantee, consent_type, duration_seconds)
     }
 
     /// Revoke previously granted consent.
@@ -1892,16 +1871,68 @@ impl VisionRecordsContract {
         patient: Address,
         grantee: Address,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        patient.require_auth();
-        let key = consent_key(&patient, &grantee);
-        if let Some(mut consent) = env.storage().persistent().get::<_, ConsentGrant>(&key) {
-            consent.revoked = true;
-            env.storage().persistent().set(&key, &consent);
-        }
-        events::publish_consent_revoked(&env, patient, grantee);
-        Ok(())
+        consent_management::revoke_consent(&env, &patient, &grantee)
     }
+
+    /// Grant emergency access to patient records
+    pub fn grant_emergency_access(
+        env: Env,
+        requester: Address,
+        patient: Address,
+        condition: EmergencyCondition,
+        attestation: String,
+        duration_seconds: u64,
+        notified_contacts: Vec<Address>,
+    ) -> Result<u64, ContractError> {
+        emergency::grant_emergency_access(
+            &env,
+            &requester,
+            &patient,
+            condition,
+            attestation,
+            duration_seconds,
+            notified_contacts,
+        )
+    }
+
+    /// Revoke an active emergency access grant
+    pub fn revoke_emergency_access(
+        env: Env,
+        revoker: Address,
+        access_id: u64,
+    ) -> Result<(), ContractError> {
+        emergency::revoke_emergency_access(&env, &revoker, access_id)
+    }
+
+    /// Get details of an emergency access grant by ID
+    pub fn get_emergency_access(
+        env: Env,
+        access_id: u64,
+    ) -> Result<EmergencyAccess, ContractError> {
+        emergency::get_emergency_access(&env, access_id).ok_or(ContractError::RecordNotFound)
+    }
+
+    /// Get active emergency accesses for a patient
+    pub fn get_patient_emergency_accesses(
+        env: Env,
+        patient: Address,
+    ) -> Vec<EmergencyAccess> {
+        emergency::get_patient_emergency_accesses(&env, &patient)
+    }
+
+    /// Expire emergency accesses that have passed expiration time
+    pub fn expire_emergency_accesses(env: Env) -> u32 {
+        emergency::expire_emergency_accesses(&env)
+    }
+
+    /// Get audit entries for an emergency access request
+    pub fn get_emergency_audit_entries(
+        env: Env,
+        access_id: u64,
+    ) -> Vec<EmergencyAuditEntry> {
+        emergency::get_audit_entries(&env, access_id)
+    }
+
 
     /// Revoke access
     pub fn revoke_access(
@@ -1989,7 +2020,7 @@ impl VisionRecordsContract {
         patient: Address,
         insurance_info: Option<InsuranceInfo>,
     ) -> Result<(), ContractError> {
-        patient_profile::update_insurance(&env, &caller, &patient, insurance_info)
+        insurance::update_insurance(&env, &caller, &patient, insurance_info)
     }
 
     /// Add medical history reference (IPFS hash or record ID)
@@ -2179,20 +2210,7 @@ impl VisionRecordsContract {
         user: Address,
         permission: Permission,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-        // Unified check: covers direct role, custom grants, and delegated roles
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "grant_custom_permission",
-                "permission:ManageUsers",
-            );
-        }
-        rbac::grant_custom_permission(&env, user, permission)
-            .map_err(|_| ContractError::UserNotFound)?;
-        Ok(())
+        rbac::grant_custom_permission(&env, &caller, user, permission)
     }
 
     /// Revokes a custom permission from a user.
@@ -2203,20 +2221,7 @@ impl VisionRecordsContract {
         user: Address,
         permission: Permission,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-        // Unified check: covers direct role, custom grants, and delegated roles
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "revoke_custom_permission",
-                "permission:ManageUsers",
-            );
-        }
-        rbac::revoke_custom_permission(&env, user, permission)
-            .map_err(|_| ContractError::UserNotFound)?;
-        Ok(())
+        rbac::revoke_custom_permission(&env, &caller, user, permission)
     }
 
     /// Delegates a role to another user with an expiration timestamp.
@@ -2228,10 +2233,7 @@ impl VisionRecordsContract {
         role: Role,
         expires_at: u64,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        delegator.require_auth();
-        rbac::delegate_role(&env, delegator, delegatee, role, expires_at);
-        Ok(())
+        rbac::delegate_role(&env, delegator, delegatee, role, expires_at)
     }
 
     /// Pauses contract operations for a given scope.
@@ -2261,13 +2263,7 @@ impl VisionRecordsContract {
         group_name: String,
         permissions: Vec<Permission>,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
-            return Self::unauthorized(&env, &caller, "create_acl_group", "permission:ManageUsers");
-        }
-        rbac::create_group(&env, group_name, permissions);
-        Ok(())
+        rbac::create_group(&env, &caller, group_name, permissions)
     }
 
     /// Adds a user to an ACL group.
@@ -2277,17 +2273,7 @@ impl VisionRecordsContract {
         user: Address,
         group_name: String,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "add_user_to_group",
-                "permission:ManageUsers",
-            );
-        }
-        rbac::add_to_group(&env, user, group_name).map_err(|_| ContractError::InvalidInput)
+        rbac::add_to_group(&env, &caller, user, group_name)
     }
 
     /// Removes a user from an ACL group.
@@ -2297,26 +2283,12 @@ impl VisionRecordsContract {
         user: Address,
         group_name: String,
     ) -> Result<(), ContractError> {
-        circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
-        caller.require_auth();
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
-            return Self::unauthorized(
-                &env,
-                &caller,
-                "remove_user_from_group",
-                "permission:ManageUsers",
-            );
-        }
-        rbac::remove_from_group(&env, user, group_name);
-        Ok(())
+        rbac::remove_from_group(&env, &caller, user, group_name)
     }
 
     /// Returns all ACL groups assigned to a user.
     pub fn get_user_groups(env: Env, user: Address) -> Vec<String> {
-        env.storage()
-            .persistent()
-            .get(&rbac::user_groups_key(&user))
-            .unwrap_or(Vec::new(&env))
+        rbac::get_user_groups(&env, &user)
     }
 
     /// Checks if a user has a specific permission.
@@ -2337,13 +2309,6 @@ impl VisionRecordsContract {
         min_sensitivity_level: SensitivityLevel,
         consent_required: bool,
     ) -> Result<(), ContractError> {
-        caller.require_auth();
-
-        // Only SystemAdmin can create policies
-        if !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
-            return Err(ContractError::Unauthorized);
-        }
-
         let conditions = rbac::PolicyConditions {
             required_role,
             time_restriction,
@@ -2351,18 +2316,7 @@ impl VisionRecordsContract {
             min_sensitivity_level,
             consent_required,
         };
-
-        let policy = rbac::AccessPolicy {
-            id: policy_id.clone(),
-            name,
-            conditions,
-            enabled: true,
-        };
-
-        rbac::create_access_policy(&env, policy);
-        events::publish_policy_created(&env, policy_id, caller);
-
-        Ok(())
+        rbac::create_access_policy(&env, &caller, policy_id, name, conditions)
     }
 
     /// Set credential type for a user
@@ -2372,17 +2326,7 @@ impl VisionRecordsContract {
         user: Address,
         credential: CredentialType,
     ) -> Result<(), ContractError> {
-        caller.require_auth();
-
-        // Only SystemAdmin can set credentials
-        if !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
-            return Err(ContractError::Unauthorized);
-        }
-
-        rbac::set_user_credential(&env, user.clone(), credential);
-        events::publish_credential_set(&env, user, credential, caller);
-
-        Ok(())
+        rbac::set_user_credential(&env, &caller, user, credential)
     }
 
     /// Set sensitivity level for a record
@@ -2832,7 +2776,7 @@ impl VisionRecordsContract {
         prescription_data: prescription::PrescriptionData,
     ) -> Result<u64, ContractError> {
         // Validate without state changes
-        validation::validate_prescription_data(&prescription_data);
+        validation::validate_prescription_data(&prescription_data)?;
 
         // Check provider permissions
         let caller = provider.clone();
@@ -3012,4 +2956,10 @@ mod test_diagnostic_image_metadata;
 mod test_empty_record;
 
 #[cfg(test)]
+mod test_examination_endpoints;
+
+#[cfg(test)]
 mod test_profile;
+
+#[cfg(test)]
+mod prescription_tests;

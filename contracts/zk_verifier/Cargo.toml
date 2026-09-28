@@ -12,7 +12,7 @@ crate-type = ["cdylib", "rlib"]
 doctest = false
 
 [dependencies]
-soroban-sdk = { workspace = true }
+soroban-sdk = { workspace = true, features = ["alloc"] }
 common = { path = "../common", default-features = false }
 ark-bn254 = { version = "0.5", default-features = false }
 ark-ff = { version = "0.5", default-features = false }
@@ -23,3 +23,5 @@ soroban-sdk = { workspace = true, features = ["testutils"] }
 
 [features]
 testutils = ["soroban-sdk/testutils"]
+# Link as a dependency of another contract without exporting entry points.
+library = []

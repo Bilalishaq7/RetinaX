@@ -323,6 +323,8 @@ version = "1.2.2"
 dependencies = [
  "hex",
  "hmac",
+ "proptest",
+ "proptest-derive",
  "sha2",
  "soroban-sdk",
 ]

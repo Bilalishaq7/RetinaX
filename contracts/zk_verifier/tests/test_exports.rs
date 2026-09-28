@@ -10,7 +10,7 @@ use zk_verifier::{AccessRequest, ContractError, ZkVerifierContract, ZkVerifierCo
 use zk_verifier::{MerkleVerifier, ZkAccessHelper};
 
 // Test that verifier types are accessible
-use zk_verifier::{PoseidonHasher, ProofValidationError};
+use zk_verifier::{Bn254Verifier, PlonkVerifier, PoseidonHasher, Proof, ProofValidationError};
 
 // Test that vk types are accessible
 use zk_verifier::vk::{G1Point, G2Point};
@@ -162,4 +162,24 @@ fn test_contract_error_accessible() {
         _err1, _err2, _err3, _err4, _err5, _err6, _err7, _err8, _err9, _err10, _err11, _err12,
         _err13, _err14,
     );
+}
+
+#[test]
+fn test_public_structs_implement_clone_and_debug() {
+    // Compile-time check: fails to build if a public struct drops either derive.
+    fn assert_clone_debug<T: Clone + core::fmt::Debug>() {}
+
+    assert_clone_debug::<AccessRequest>();
+    assert_clone_debug::<AuditRecord>();
+    assert_clone_debug::<AuditTrail>();
+    assert_clone_debug::<AccessRejectedEvent>();
+    assert_clone_debug::<ZkAccessHelper>();
+    assert_clone_debug::<MerkleVerifier>();
+    assert_clone_debug::<PlonkVerifier>();
+    assert_clone_debug::<Bn254Verifier>();
+    assert_clone_debug::<PoseidonHasher>();
+    assert_clone_debug::<Proof>();
+    assert_clone_debug::<G1Point>();
+    assert_clone_debug::<G2Point>();
+    assert_clone_debug::<VerificationKey>();
 }

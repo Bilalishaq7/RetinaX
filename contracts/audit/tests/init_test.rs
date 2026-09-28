@@ -78,7 +78,10 @@ fn test_initialize_returns_typed_already_initialized_error() {
                 "Must return typed AuditContractError::AlreadyInitialized (error code 1)"
             );
         }
-        other => panic!("Expected AlreadyInitialized typed contract error, got {:?}", other),
+        other => panic!(
+            "Expected AlreadyInitialized typed contract error, got {:?}",
+            other
+        ),
     }
 }
 
@@ -93,7 +96,10 @@ fn test_repeated_reinitialization_always_fails() {
         let result = client.try_initialize(&attacker);
         match result {
             Err(Ok(err)) => assert_eq!(err, AuditContractError::AlreadyInitialized),
-            other => panic!("Every re-init attempt must fail with AlreadyInitialized, got {:?}", other),
+            other => panic!(
+                "Every re-init attempt must fail with AlreadyInitialized, got {:?}",
+                other
+            ),
         }
     }
 }
@@ -111,7 +117,10 @@ fn test_admin_storage_immutable_after_reinit_attempt() {
     client.create_segment(&segment);
 
     let count = client.get_entry_count(&segment);
-    assert_eq!(count, 0, "Newly created segment by authorized admin must exist with 0 entries");
+    assert_eq!(
+        count, 0,
+        "Newly created segment by authorized admin must exist with 0 entries"
+    );
 }
 
 #[test]
@@ -152,7 +161,10 @@ fn test_multi_instance_isolated_initialization() {
 
     // Instance B is still uninitialized; its first initialization must succeed
     let res_b = client_b.try_initialize(&admin_b);
-    assert!(res_b.is_ok(), "Instance B initialization must succeed independently");
+    assert!(
+        res_b.is_ok(),
+        "Instance B initialization must succeed independently"
+    );
 
     // Both instances can now perform distinct operations
     let seg_a = symbol_short!("INST_A");
@@ -181,7 +193,10 @@ fn test_initialize_with_contract_address_admin() {
 
     // Initializing with a smart contract address as admin
     let res = client.try_initialize(&contract_admin_id);
-    assert!(res.is_ok(), "Initialization with a contract address admin must succeed");
+    assert!(
+        res.is_ok(),
+        "Initialization with a contract address admin must succeed"
+    );
 
     // Segment creation with contract admin
     let segment = symbol_short!("CON_ADM");
@@ -228,4 +243,3 @@ fn test_post_activity_reinitialization_preserves_state() {
     assert_eq!(entries.get(0).unwrap().sequence, 1);
     assert_eq!(entries.get(1).unwrap().sequence, 2);
 }
-

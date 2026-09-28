@@ -9,7 +9,6 @@ pub fn validate_string_length(s: &String, min: u32, max: u32) -> Result<(), Cont
 
 use soroban_sdk::String;
 
-use crate::prescription::PrescriptionData;
 use crate::ContractError;
 
 const MIN_NAME_LEN: u32 = 2;
@@ -86,7 +85,7 @@ pub fn validate_data_hash(hash: &String) -> Result<(), ContractError> {
 /// Validate a grant access duration.
 /// Prevent extremely short durations (e.g., 0) or extremely long ones (overflow risk).
 pub fn validate_duration(duration_seconds: u64) -> Result<(), ContractError> {
-    if !(MIN_DURATION_SECONDS..=MAX_DURATION_SECONDS).contains(&duration_seconds) {
+    if duration_seconds == 0 || duration_seconds > MAX_DURATION_SECONDS {
         return Err(ContractError::InvalidInput);
     }
     Ok(())
@@ -206,6 +205,47 @@ mod tests {
         // Too long
         assert_eq!(
             validate_duration(157_680_001),
+            Err(ContractError::InvalidInput)
+        );
+    }
+
+    #[test]
+    fn test_validate_prescription_data() {
+        let env = Env::default();
+
+        let valid_data = PrescriptionData {
+            sphere: String::from_str(&env, "-2.50"),
+            cylinder: String::from_str(&env, "-1.25"),
+            axis: String::from_str(&env, "180"),
+            add: String::from_str(&env, "+2.00"),
+            pd: String::from_str(&env, "63"),
+        };
+        assert_eq!(validate_prescription_data(&valid_data), Ok(()));
+
+        // Empty sphere
+        let invalid_sphere = PrescriptionData {
+            sphere: String::from_str(&env, ""),
+            cylinder: String::from_str(&env, "-1.25"),
+            axis: String::from_str(&env, "180"),
+            add: String::from_str(&env, "+2.00"),
+            pd: String::from_str(&env, "63"),
+        };
+        assert_eq!(
+            validate_prescription_data(&invalid_sphere),
+            Err(ContractError::InvalidInput)
+        );
+
+        // Oversized pd string
+        let long_pd = "1".repeat(17);
+        let invalid_pd = PrescriptionData {
+            sphere: String::from_str(&env, "-2.50"),
+            cylinder: String::from_str(&env, "-1.25"),
+            axis: String::from_str(&env, "180"),
+            add: String::from_str(&env, "+2.00"),
+            pd: String::from_str(&env, &long_pd),
+        };
+        assert_eq!(
+            validate_prescription_data(&invalid_pd),
             Err(ContractError::InvalidInput)
         );
     }

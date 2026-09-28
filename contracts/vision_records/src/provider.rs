@@ -102,6 +102,15 @@ pub fn get_provider(env: &Env, provider: &Address) -> Option<Provider> {
     env.storage().persistent().get(&key)
 }
 
+pub fn is_provider_verified(env: &Env, provider: &Address) -> bool {
+    if let Some(p) = get_provider(env, provider) {
+        p.is_active && p.verification_status == VerificationStatus::Verified
+    } else {
+        false
+    }
+}
+
+
 pub fn set_provider(env: &Env, provider: &Provider) {
     let key = provider_key(&provider.address);
 
