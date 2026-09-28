@@ -93,7 +93,7 @@ test('utils.js — truncateAddress', async (t) => {
     const addr = 'GCZJM2KLV4LHX6SQQ3JY4OVKCQH4XLXJXS6QIVTGQXVHXKZXKP5ABCD';
     const result1 = RetinaXUtils.truncateAddress(addr, 0, 4);
     assert.strictEqual(result1, '...ABCD');
-    
+
     const result2 = RetinaXUtils.truncateAddress(addr, 6, 0);
     assert.strictEqual(result2, 'GCZJM2...');
   });
@@ -260,7 +260,10 @@ test('utils.js — formatCompactNumber', async (t) => {
 
 test('utils.js — escapeHtml', async (t) => {
   await t.test('escapes special HTML characters', () => {
-    assert.strictEqual(RetinaXUtils.escapeHtml('<script>alert("xss")</script>'), '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+    assert.strictEqual(
+      RetinaXUtils.escapeHtml('<script>alert("xss")</script>'),
+      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+    );
     assert.strictEqual(RetinaXUtils.escapeHtml('Tom & Jerry'), 'Tom &amp; Jerry');
     assert.strictEqual(RetinaXUtils.escapeHtml("it's cold"), 'it&#39;s cold');
   });
@@ -271,4 +274,3 @@ test('utils.js — escapeHtml', async (t) => {
     assert.strictEqual(RetinaXUtils.escapeHtml(12345), '');
   });
 });
-
