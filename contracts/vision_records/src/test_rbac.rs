@@ -6,7 +6,7 @@
 )]
 
 use super::{
-    AccessLevel, ConsentType, ContractError, CredentialType, Permission, RecordType, Role,
+    ConsentType, ContractError, CredentialType, Permission, RecordType, Role,
     SensitivityLevel, TimeRestriction, VisionRecordsContract, VisionRecordsContractClient,
 };
 use crate::events::{
@@ -1085,4 +1085,33 @@ fn test_rbac_strings_are_length_bounded() {
         assert_eq!(create_policy(&longest, bad), invalid);
     }
     assert_eq!(create_policy(&longest, &longest), Ok(Ok(())));
+}
+
+#[test]
+fn test_access_control_micro_contract_integration() {
+    let (env, client, admin) = setup_test();
+
+    // 1. Deploy the AccessControl micro-contract
+    let access_control_id = env.register(access_control::AccessControlContract, ());
+    let ac_client = access_control::AccessControlContractClient::new(&env, &access_control_id);
+    ac_client.initialize(&admin);
+
+    // 2. Configure access_control in vision_records
+    assert!(client.get_access_control().is_none());
+    client.set_access_control(&admin, &access_control_id);
+    assert_eq!(client.get_access_control(), Some(access_control_id));
+
+    // 3. User initially has no permissions in access_control
+    let doctor = Address::generate(&env);
+    assert!(!client.check_permission(&doctor, &Permission::WriteRecord));
+
+    // 4. Assign role in access_control micro-contract
+    ac_client.assign_role(&admin, &doctor, &access_control::Role::Ophthalmologist, &0);
+
+    // 5. VisionRecords queries access_control micro-contract cross-contract and confirms permission!
+    assert!(client.check_permission(&doctor, &Permission::WriteRecord));
+    assert!(client.check_permission(&doctor, &Permission::ReadAnyRecord));
+    assert!(client.check_permission(&doctor, &Permission::ManageAccess));
+    assert!(client.check_permission(&doctor, &Permission::ManageUsers));
+    assert!(!client.check_permission(&doctor, &Permission::SystemAdmin));
 }

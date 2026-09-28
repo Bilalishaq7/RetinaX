@@ -5,7 +5,8 @@ global.document = { readyState: 'complete', querySelectorAll: () => [], addEvent
 global.window = global;
 global.HTMLElement = function () {};
 
-const RepoAvatar = require('/workspaces/RetinaX/website/components/repo-avatar.js');
+const path = require('path');
+const RepoAvatar = require(path.join(__dirname, 'repo-avatar.js'));
 
 // Mock HTMLElement factory
 function MockEl(dataset) {

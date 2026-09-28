@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Background Outer Glow -->
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0a192f" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#050a14" stop-opacity="1" />
+    </radialGradient>
+
+    <!-- Glowing Cyan/Teal to Purple Gradients -->
+    <linearGradient id="cyanPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F2FE" />
+      <stop offset="50%" stop-color="#4FACFE" />
+      <stop offset="100%" stop-color="#9333EA" />
+    </linearGradient>
+
+    <linearGradient id="irisGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="40%" stop-color="#0284C7" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+
+    <linearGradient id="ringGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06B6D4" />
+      <stop offset="50%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#EC4899" />
+    </linearGradient>
+
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="subtleGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="3" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Circular Outer Badge Background -->
+  <circle cx="250" cy="250" r="230" fill="url(#bgGlow)" stroke="url(#ringGrad)" stroke-width="4" stroke-opacity="0.6" filter="url(#subtleGlow)" />
+  <circle cx="250" cy="250" r="218" fill="none" stroke="#00F2FE" stroke-width="1.5" stroke-opacity="0.3" stroke-dasharray="6 8" />
+
+  <!-- Hexagonal / Constellation Data Mesh (Decentralized Network Nodes) -->
+  <g stroke="#38BDF8" stroke-width="1.5" stroke-opacity="0.4" fill="none">
+    <!-- Outer Hexagonal Grid -->
+    <polygon points="250,90 380,165 380,315 250,390 120,315 120,165" stroke="url(#cyanPurple)" stroke-width="2" stroke-opacity="0.5" />
+    <line x1="250" y1="90" x2="250" y2="140" />
+    <line x1="380" y1="165" x2="335" y2="190" />
+    <line x1="380" y1="315" x2="335" y2="290" />
+    <line x1="250" y1="390" x2="250" y2="340" />
+    <line x1="120" y1="315" x2="165" y2="290" />
+    <line x1="120" y1="165" x2="165" y2="190" />
+  </g>
+
+  <!-- Network Nodes with Pulse Centers -->
+  <g fill="#00F2FE" filter="url(#neonGlow)">
+    <circle cx="250" cy="90" r="6" />
+    <circle cx="380" cy="165" r="6" />
+    <circle cx="380" cy="315" r="6" />
+    <circle cx="250" cy="390" r="6" />
+    <circle cx="120" cy="315" r="6" />
+    <circle cx="120" cy="165" r="6" />
+  </g>
+  <g fill="#A855F7" filter="url(#neonGlow)">
+    <circle cx="200" cy="130" r="4" />
+    <circle cx="300" cy="130" r="4" />
+    <circle cx="350" cy="240" r="4" />
+    <circle cx="300" cy="360" r="4" />
+    <circle cx="200" cy="360" r="4" />
+    <circle cx="150" cy="240" r="4" />
+  </g>
+
+  <!-- Outer Eye Aperture Rings -->
+  <circle cx="250" cy="250" r="140" fill="none" stroke="url(#cyanPurple)" stroke-width="3" stroke-opacity="0.8" filter="url(#subtleGlow)" />
+  <circle cx="250" cy="250" r="125" fill="none" stroke="#38BDF8" stroke-width="1.5" stroke-dasharray="12 10 4 10" stroke-opacity="0.7" />
+  <circle cx="250" cy="250" r="105" fill="none" stroke="#818CF8" stroke-width="2" stroke-dasharray="4 6" stroke-opacity="0.5" />
+
+  <!-- Iris Dynamic Arcs (Aperture / Scanner Blades) -->
+  <g stroke="url(#irisGrad)" stroke-width="4" stroke-linecap="round" fill="none" filter="url(#subtleGlow)">
+    <!-- Arc 1 -->
+    <path d="M 250 160 A 90 90 0 0 1 330 210" />
+    <!-- Arc 2 -->
+    <path d="M 338 235 A 90 90 0 0 1 310 320" />
+    <!-- Arc 3 -->
+    <path d="M 285 336 A 90 90 0 0 1 190 325" />
+    <!-- Arc 4 -->
+    <path d="M 165 300 A 90 90 0 0 1 165 200" />
+    <!-- Arc 5 -->
+    <path d="M 185 178 A 90 90 0 0 1 245 160" />
+  </g>
+
+  <!-- Central Pupil (Deep Stellar Core) -->
+  <circle cx="250" cy="250" r="62" fill="#030712" stroke="url(#ringGrad)" stroke-width="4" filter="url(#neonGlow)" />
+
+  <!-- Glowing Medical / Cryptographic Focal Cross (Precision Optics) -->
+  <g stroke="#00F2FE" stroke-width="2" stroke-linecap="round" opacity="0.9">
+    <line x1="250" y1="210" x2="250" y2="232" />
+    <line x1="250" y1="268" x2="250" y2="290" />
+    <line x1="210" y1="250" x2="232" y2="250" />
+    <line x1="268" y1="250" x2="290" y2="250" />
+  </g>
+
+  <!-- Innermost Core Spark / Star Highlight -->
+  <circle cx="250" cy="250" r="16" fill="#38BDF8" filter="url(#neonGlow)" />
+  <circle cx="250" cy="250" r="8" fill="#FFFFFF" />
+  <circle cx="242" cy="242" r="4" fill="#FFFFFF" opacity="0.8" />
+
+  <!-- Subtle Horizon Tech Ray -->
+  <line x1="80" y1="250" x2="110" y2="250" stroke="#00F2FE" stroke-width="2" stroke-linecap="round" opacity="0.6" />
+  <line x1="390" y1="250" x2="420" y2="250" stroke="#00F2FE" stroke-width="2" stroke-linecap="round" opacity="0.6" />
+</svg>
