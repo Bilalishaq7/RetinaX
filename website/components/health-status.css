@@ -1,0 +1,66 @@
+/* ==========================================================================
+   RetinaX — Health Record Status Component
+   Design System: RetinaX Clinical (Serene Clinical White, Slate Navy, Medical Teal)
+   Source: split from website/styles.css — see website/styles.css aggregator
+   ========================================================================== */
+
+/* ==========================================================================
+   Health Record Status Component
+   ========================================================================== */
+.health-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid transparent;
+}
+
+.health-status-badge::before {
+  content: '';
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.health-status-badge.verified {
+  background-color: var(--status-green-bg);
+  color: var(--status-green);
+  border-color: rgba(22, 163, 74, 0.2);
+}
+.health-status-badge.verified::before {
+  background-color: var(--status-green);
+}
+
+.health-status-badge.pending {
+  background-color: var(--status-amber-bg);
+  color: var(--status-amber);
+  border-color: rgba(217, 119, 6, 0.2);
+}
+.health-status-badge.pending::before {
+  background-color: var(--status-amber);
+}
+
+.health-status-badge.failed {
+  background-color: var(--status-rose-bg);
+  color: var(--status-rose);
+  border-color: rgba(225, 29, 72, 0.2);
+}
+.health-status-badge.failed::before {
+  background-color: var(--status-rose);
+}
+
+.health-status-badge.archived {
+  background-color: var(--status-gray-bg);
+  color: var(--status-gray);
+  border-color: rgba(100, 116, 139, 0.2);
+}
+.health-status-badge.archived::before {
+  background-color: var(--status-gray);
+}
