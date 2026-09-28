@@ -83,7 +83,7 @@ pub fn validate_data_hash(hash: &String) -> Result<(), ContractError> {
 /// Validate a grant access duration.
 /// Prevent extremely short durations (e.g., 0) or extremely long ones (overflow risk).
 pub fn validate_duration(duration_seconds: u64) -> Result<(), ContractError> {
-    if !(MIN_DURATION_SECONDS..=MAX_DURATION_SECONDS).contains(&duration_seconds) {
+    if duration_seconds == 0 || duration_seconds > MAX_DURATION_SECONDS {
         return Err(ContractError::InvalidInput);
     }
     Ok(())

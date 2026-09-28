@@ -794,7 +794,7 @@ fn test_happy_path_set_record_sensitivity_endpoint() {
         &String::from_str(&env, "ProviderDan"),
     );
 
-    let data_hash = String::from_str(&env, "a1b2c3d4e5f6");
+    let data_hash = String::from_str(&env, "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4");
     let record_id = client.add_record(
         &provider,
         &patient,
