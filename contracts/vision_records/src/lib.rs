@@ -29,6 +29,7 @@ pub use emergency::{
 };
 
 
+use access_control::AccessControlContractClient;
 use key_manager::{DerivedKey, KeyManagerContractClient};
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env, String,
@@ -79,6 +80,7 @@ const ENC_CUR: Symbol = symbol_short!("ENC_CUR");
 const ENC_KEY: Symbol = symbol_short!("ENC_KEY");
 const KEY_MGR: Symbol = symbol_short!("KEY_MGR");
 const KEY_MGR_KEY: Symbol = symbol_short!("KEY_MGRK");
+const ACCESS_CONTROL: Symbol = symbol_short!("ACC_CTRL");
 
 /// Extends the time-to-live (TTL) for a storage key containing an Address.
 /// This ensures the data remains accessible for the extended period.
@@ -347,6 +349,50 @@ impl VisionRecordsContract {
         match (manager, key_id) {
             (Some(mgr), Some(key)) => Some((mgr, key)),
             _ => None,
+        }
+    }
+
+    fn get_access_control_config(env: &Env) -> Option<Address> {
+        env.storage().instance().get(&ACCESS_CONTROL)
+    }
+
+    /// Internal permission check querying standalone access_control micro-contract if configured,
+    /// falling back to local rbac storage otherwise.
+    pub fn has_permission_unified(env: &Env, user: &Address, permission: &Permission) -> bool {
+        if let Some(ac_addr) = Self::get_access_control_config(env) {
+            let client = AccessControlContractClient::new(env, &ac_addr);
+            let ac_perm = match permission {
+                Permission::ReadAnyRecord => access_control::Permission::ReadAnyRecord,
+                Permission::WriteRecord => access_control::Permission::WriteRecord,
+                Permission::ManageAccess => access_control::Permission::ManageAccess,
+                Permission::ManageUsers => access_control::Permission::ManageUsers,
+                Permission::SystemAdmin => access_control::Permission::SystemAdmin,
+            };
+            client.has_permission(user, &ac_perm)
+        } else {
+            rbac::has_permission(env, user, permission)
+        }
+    }
+
+    /// Internal delegated permission check querying standalone access_control micro-contract if configured.
+    pub fn has_delegated_permission_unified(
+        env: &Env,
+        delegator: &Address,
+        delegatee: &Address,
+        permission: &Permission,
+    ) -> bool {
+        if let Some(ac_addr) = Self::get_access_control_config(env) {
+            let client = AccessControlContractClient::new(env, &ac_addr);
+            let ac_perm = match permission {
+                Permission::ReadAnyRecord => access_control::Permission::ReadAnyRecord,
+                Permission::WriteRecord => access_control::Permission::WriteRecord,
+                Permission::ManageAccess => access_control::Permission::ManageAccess,
+                Permission::ManageUsers => access_control::Permission::ManageUsers,
+                Permission::SystemAdmin => access_control::Permission::SystemAdmin,
+            };
+            client.has_delegated_permission(delegator, delegatee, &ac_perm)
+        } else {
+            rbac::has_delegated_permission(env, delegator, delegatee, permission)
         }
     }
 
@@ -703,7 +749,7 @@ impl VisionRecordsContract {
             multisig::mark_executed(&env, proposal_id).map_err(|_| ContractError::Unauthorized)?;
         } else {
             let admin = Self::get_admin(env.clone())?;
-            let has_system_admin = rbac::has_permission(&env, &caller, &Permission::SystemAdmin);
+            let has_system_admin = Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin);
             if caller != admin && !has_system_admin {
                 return Err(ContractError::Unauthorized);
             }
@@ -829,7 +875,7 @@ impl VisionRecordsContract {
         }
 
         // Unified check: covers direct role, custom grants, and delegated roles
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
+        if !Self::has_permission_unified(&env, &caller, &Permission::ManageUsers) {
             let resource_id = String::from_str(&env, "register_user");
             let context = create_error_context(
                 &env,
@@ -930,13 +976,13 @@ impl VisionRecordsContract {
         // If caller is the provider, unified check covers direct + delegated WriteRecord.
         // Otherwise, check if this specific provider delegated to the caller.
         let has_perm = if caller == provider {
-            rbac::has_permission(&env, &caller, &Permission::WriteRecord)
+            Self::has_permission_unified(&env, &caller, &Permission::WriteRecord)
         } else {
-            rbac::has_delegated_permission(&env, &provider, &caller, &Permission::WriteRecord)
+            Self::has_delegated_permission_unified(&env, &provider, &caller, &Permission::WriteRecord)
         };
 
         // Fall back to SystemAdmin (unified: direct role + any delegation)
-        if !has_perm && !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
+        if !has_perm && !Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin) {
             // Log failed write attempt
             let audit_entry = audit::create_audit_entry(
                 &env,
@@ -1066,8 +1112,8 @@ impl VisionRecordsContract {
         }
 
         // Check provider has WriteRecord permission once for the whole batch
-        if !rbac::has_permission(&env, &provider, &Permission::WriteRecord)
-            && !rbac::has_permission(&env, &provider, &Permission::SystemAdmin)
+        if !Self::has_permission_unified(&env, &provider, &Permission::WriteRecord)
+            && !Self::has_permission_unified(&env, &provider, &Permission::SystemAdmin)
         {
             return Self::unauthorized(
                 &env,
@@ -1193,8 +1239,8 @@ impl VisionRecordsContract {
                     true
                 } else {
                     // Check if caller has broad read permissions, active consent, or explicit grant
-                    rbac::has_permission(&env, &caller, &Permission::ReadAnyRecord)
-                        || rbac::has_permission(&env, &caller, &Permission::SystemAdmin)
+                    Self::has_permission_unified(&env, &caller, &Permission::ReadAnyRecord)
+                        || Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin)
                         || has_active_consent(&env, &record.patient, &caller)
                         || {
                             let access_level = Self::check_access(
@@ -1335,9 +1381,9 @@ impl VisionRecordsContract {
         let record = Self::get_record_raw(&env, record_id)?;
 
         let has_perm = if caller == record.provider {
-            rbac::has_permission(&env, &caller, &Permission::WriteRecord)
+            Self::has_permission_unified(&env, &caller, &Permission::WriteRecord)
         } else {
-            rbac::has_delegated_permission(
+            Self::has_delegated_permission_unified(
                 &env,
                 &record.provider,
                 &caller,
@@ -1345,7 +1391,7 @@ impl VisionRecordsContract {
             )
         };
 
-        if !has_perm && !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
+        if !has_perm && !Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin) {
             return Self::unauthorized(
                 &env,
                 &caller,
@@ -1407,9 +1453,9 @@ impl VisionRecordsContract {
         let record = Self::get_record_raw(&env, record_id)?;
 
         let has_perm = if caller == record.provider {
-            rbac::has_permission(&env, &caller, &Permission::WriteRecord)
+            Self::has_permission_unified(&env, &caller, &Permission::WriteRecord)
         } else {
-            rbac::has_delegated_permission(
+            Self::has_delegated_permission_unified(
                 &env,
                 &record.provider,
                 &caller,
@@ -1417,7 +1463,7 @@ impl VisionRecordsContract {
             )
         };
 
-        if !has_perm && !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
+        if !has_perm && !Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin) {
             return Self::unauthorized(
                 &env,
                 &caller,
@@ -1472,7 +1518,7 @@ impl VisionRecordsContract {
                 || access == AccessLevel::Full
                 || access == AccessLevel::Admin
                 || record_access != AccessLevel::None
-                || rbac::has_permission(&env, &caller, &Permission::SystemAdmin)
+                || Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin)
         };
 
         if !has_perm {
@@ -1498,9 +1544,9 @@ impl VisionRecordsContract {
 
         let record = Self::get_record_raw(&env, record_id)?;
         let has_perm = if caller == record.provider {
-            rbac::has_permission(&env, &caller, &Permission::WriteRecord)
+            Self::has_permission_unified(&env, &caller, &Permission::WriteRecord)
         } else {
-            rbac::has_delegated_permission(
+            Self::has_delegated_permission_unified(
                 &env,
                 &record.provider,
                 &caller,
@@ -1508,7 +1554,7 @@ impl VisionRecordsContract {
             )
         };
 
-        if !has_perm && !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
+        if !has_perm && !Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin) {
             return Self::unauthorized(
                 &env,
                 &caller,
@@ -1542,7 +1588,7 @@ impl VisionRecordsContract {
 
         let admin = Self::get_admin(env.clone())?;
         let has_admin =
-            caller == admin || rbac::has_permission(&env, &caller, &Permission::SystemAdmin);
+            caller == admin || Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin);
 
         if !has_admin {
             let key = (symbol_short!("RECORD"), record_id);
@@ -1553,9 +1599,9 @@ impl VisionRecordsContract {
                 .ok_or(ContractError::RecordNotFound)?;
 
             let has_perm = if caller == record.provider {
-                rbac::has_permission(&env, &caller, &Permission::WriteRecord)
+                Self::has_permission_unified(&env, &caller, &Permission::WriteRecord)
             } else {
-                rbac::has_delegated_permission(
+                Self::has_delegated_permission_unified(
                     &env,
                     &record.provider,
                     &caller,
@@ -1614,9 +1660,9 @@ impl VisionRecordsContract {
             true // Patient manages own access
         } else {
             // Specific patient→caller delegation for ManageAccess
-            rbac::has_delegated_permission(&env, &patient, &caller, &Permission::ManageAccess)
+            Self::has_delegated_permission_unified(&env, &patient, &caller, &Permission::ManageAccess)
                 // Or caller has SystemAdmin (unified: direct + any delegation)
-                || rbac::has_permission(&env, &caller, &Permission::SystemAdmin)
+                || Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin)
         };
 
         if !has_perm {
@@ -2133,8 +2179,30 @@ impl VisionRecordsContract {
 
     /// Checks if a user has a specific permission.
     /// Returns true if the user has the permission, false otherwise.
+    /// Queries the standalone access_control micro-contract if configured.
     pub fn check_permission(env: Env, user: Address, permission: Permission) -> bool {
-        rbac::has_permission(&env, &user, &permission)
+        Self::has_permission_unified(&env, &user, &permission)
+    }
+
+    /// Sets the standalone AccessControl micro-contract address.
+    pub fn set_access_control(
+        env: Env,
+        admin: Address,
+        access_control: Address,
+    ) -> Result<(), ContractError> {
+        let is_super = admin_tiers::require_tier(&env, &admin, &AdminTier::SuperAdmin);
+        let is_contract_admin = admin_tiers::require_tier(&env, &admin, &AdminTier::ContractAdmin);
+        if !is_super && !is_contract_admin && !rbac::has_permission(&env, &admin, &Permission::SystemAdmin) {
+            return Err(ContractError::Unauthorized);
+        }
+        admin.require_auth();
+        env.storage().instance().set(&ACCESS_CONTROL, &access_control);
+        Ok(())
+    }
+
+    /// Returns the configured AccessControl micro-contract address, if set.
+    pub fn get_access_control(env: Env) -> Option<Address> {
+        Self::get_access_control_config(&env)
     }
 
     /// Create an access policy with ABAC attributes
@@ -2187,7 +2255,7 @@ impl VisionRecordsContract {
             .ok_or(ContractError::RecordNotFound)?;
 
         let has_perm = caller == record.provider
-            || rbac::has_permission(&env, &caller, &Permission::SystemAdmin);
+            || Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin);
         if !has_perm {
             return Err(ContractError::Unauthorized);
         }
@@ -2217,7 +2285,7 @@ impl VisionRecordsContract {
             return Err(ContractError::Unauthorized);
         }
 
-        if !rbac::has_permission(&env, &caller, &Permission::ManageUsers) {
+        if !Self::has_permission_unified(&env, &caller, &Permission::ManageUsers) {
             return Err(ContractError::Unauthorized);
         }
 
@@ -2330,12 +2398,12 @@ impl VisionRecordsContract {
 
         // Check permissions
         let has_perm = if caller == provider {
-            rbac::has_permission(&env, &caller, &Permission::WriteRecord)
+            Self::has_permission_unified(&env, &caller, &Permission::WriteRecord)
         } else {
-            rbac::has_delegated_permission(&env, &provider, &caller, &Permission::WriteRecord)
+            Self::has_delegated_permission_unified(&env, &provider, &caller, &Permission::WriteRecord)
         };
 
-        if !has_perm && !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
+        if !has_perm && !Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin) {
             return Err(ContractError::Unauthorized);
         }
 
@@ -2432,7 +2500,7 @@ impl VisionRecordsContract {
         expires_at: Option<u64>,
     ) -> Result<(), ContractError> {
         // Validate inputs without state changes
-        if caller != patient && !rbac::has_permission(&env, &caller, &Permission::SystemAdmin) {
+        if caller != patient && !Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin) {
             return Err(ContractError::Unauthorized);
         }
 
@@ -2620,9 +2688,9 @@ impl VisionRecordsContract {
 
         // Check provider permissions
         let caller = provider.clone();
-        let has_perm = rbac::has_permission(&env, &caller, &Permission::WriteRecord)
-            || rbac::has_delegated_permission(&env, &provider, &caller, &Permission::WriteRecord)
-            || rbac::has_permission(&env, &caller, &Permission::SystemAdmin);
+        let has_perm = Self::has_permission_unified(&env, &caller, &Permission::WriteRecord)
+            || Self::has_delegated_permission_unified(&env, &provider, &caller, &Permission::WriteRecord)
+            || Self::has_permission_unified(&env, &caller, &Permission::SystemAdmin);
 
         if !has_perm {
             return Err(ContractError::Unauthorized);

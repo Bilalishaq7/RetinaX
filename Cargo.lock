@@ -3,6 +3,14 @@
 version = 3
 
 [[package]]
+name = "access_control"
+version = "1.2.2"
+dependencies = [
+ "common",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2210,6 +2218,7 @@ dependencies = [
 name = "vision_records"
 version = "1.2.2"
 dependencies = [
+ "access_control",
  "audit",
  "common",
  "ed25519-dalek",
@@ -2579,6 +2588,7 @@ dependencies = [
  "ark-bn254 0.5.0",
  "ark-ff 0.5.0",
  "common",
+ "ed25519-dalek",
  "light-poseidon-nostd",
  "soroban-sdk",
 ]
