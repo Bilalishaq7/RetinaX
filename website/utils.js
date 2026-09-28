@@ -14,12 +14,11 @@
       root.utils = root.RetinaXUtils;
     }
   }
-}(typeof self !== 'undefined' ? self : this, function () {
-
+})(typeof self !== 'undefined' ? self : this, function () {
   /**
    * Helper to parse any valid date input (Date object, timestamp number in sec/ms, ISO string) into a Date object.
    * Returns null if invalid.
-   * @param {Date|number|string} input 
+   * @param {Date|number|string} input
    * @returns {Date|null}
    */
   function parseDateInput(input) {
@@ -51,7 +50,7 @@
 
   /**
    * Formats a date into a standard date string (YYYY-MM-DD or custom options).
-   * @param {Date|number|string} dateInput 
+   * @param {Date|number|string} dateInput
    * @param {Object|string} [options] Format string 'YYYY-MM-DD' or Intl.DateTimeFormat options
    * @returns {string} Formatted date string, or 'Invalid Date' if invalid.
    */
@@ -67,7 +66,20 @@
     }
 
     if (options === 'MMM DD, YYYY') {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       const month = months[d.getUTCMonth()];
       const day = String(d.getUTCDate()).padStart(2, '0');
       const year = d.getUTCFullYear();
@@ -115,7 +127,7 @@
 
   /**
    * Formats a date to ISO 8601 string for FHIR v4 compliance (e.g. 2026-08-06T23:45:00Z).
-   * @param {Date|number|string} dateInput 
+   * @param {Date|number|string} dateInput
    * @returns {string} ISO 8601 timestamp string
    */
   function formatFHIRDate(dateInput) {
@@ -126,7 +138,7 @@
 
   /**
    * Returns a relative time string (e.g., "5 minutes ago", "in 2 hours", "just now").
-   * @param {Date|number|string} dateInput 
+   * @param {Date|number|string} dateInput
    * @param {Date|number|string} [referenceInput=Date.now()] Reference date for comparison
    * @returns {string} Relative time phrase
    */
@@ -177,7 +189,7 @@
 
   /**
    * Formats a duration in seconds into a human-readable phrase (e.g. "24 Hours", "1 Hour 30 Mins").
-   * @param {number} seconds 
+   * @param {number} seconds
    * @returns {string} Formatted duration string
    */
   function formatDuration(seconds) {
@@ -233,7 +245,7 @@
 
   /**
    * Format a number with K/M compact suffix (e.g. 1400 → "1.4k", 2500000 -> "2.5M").
-   * @param {number|string} n 
+   * @param {number|string} n
    * @returns {string} Formatted compact number string, or '—' if invalid.
    */
   function formatCompactNumber(n) {
@@ -270,6 +282,6 @@
     formatDuration,
     truncateAddress,
     formatCompactNumber,
-    escapeHtml
+    escapeHtml,
   };
-}));
+});

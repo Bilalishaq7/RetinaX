@@ -12,10 +12,16 @@ global.document = {
       innerHTML: '',
       dataset: {},
       style: {},
-      setAttribute: function (k, v) { this['_attr_' + k] = v; },
-      getAttribute: function (k) { return this['_attr_' + k] || null; },
+      setAttribute: function (k, v) {
+        this['_attr_' + k] = v;
+      },
+      getAttribute: function (k) {
+        return this['_attr_' + k] || null;
+      },
       appendChild: function () {},
-      querySelectorAll: function () { return []; },
+      querySelectorAll: function () {
+        return [];
+      },
       querySelector: function (sel) {
         if (sel === '.patient-card-component') return this._cardChild || null;
         return null;
@@ -24,9 +30,15 @@ global.document = {
       removeChild: function () {},
       classList: {
         _cls: '',
-        add: function (c) { el.className += (el.className ? ' ' : '') + c; },
-        remove: function (c) { el.className = el.className.replace(new RegExp('\\b' + c + '\\b', 'g'), '').trim(); },
-        contains: function (c) { return el.className.split(' ').indexOf(c) !== -1; },
+        add: function (c) {
+          el.className += (el.className ? ' ' : '') + c;
+        },
+        remove: function (c) {
+          el.className = el.className.replace(new RegExp('\\b' + c + '\\b', 'g'), '').trim();
+        },
+        contains: function (c) {
+          return el.className.split(' ').indexOf(c) !== -1;
+        },
       },
     };
     return el;
@@ -48,11 +60,13 @@ function MockEl(dataset) {
   };
   this.querySelector = function (sel) {
     if (sel === '.patient-card-component') {
-      return this._children.find(c => c.className.includes('patient-card-component')) || null;
+      return this._children.find((c) => c.className.includes('patient-card-component')) || null;
     }
     return null;
   };
-  this.getAttribute = function () { return null; };
+  this.getAttribute = function () {
+    return null;
+  };
   this.setAttribute = function () {};
 }
 MockEl.prototype = Object.create(HTMLElement.prototype);
@@ -150,9 +164,7 @@ test('PatientCard parses prescriptions from array', () => {
   const mount = new MockEl();
   const pc = new PatientCard(mount, {
     patientName: 'Frank',
-    prescriptions: [
-      { type: 'OD', sphere: '-2.50', cylinder: '-0.75', axis: '180' },
-    ],
+    prescriptions: [{ type: 'OD', sphere: '-2.50', cylinder: '-0.75', axis: '180' }],
   });
   assert(pc._cfg.prescriptions.length === 1, 'should store prescriptions');
   assert(pc._cfg.prescriptions[0].type === 'OD', 'should have correct prescription type');
@@ -191,14 +203,14 @@ test('PatientCard.destroy() removes card from DOM', () => {
   const pc = new PatientCard(mount, { patientName: 'Jack' });
   const card = mount.querySelector('.patient-card-component');
   assert(card !== null, 'card should exist before destroy');
-  
+
   // Mock removeChild
   card.parentNode = mount;
   mount.removeChild = function (child) {
     const idx = this._children.indexOf(child);
     if (idx !== -1) this._children.splice(idx, 1);
   };
-  
+
   pc.destroy();
   assert(pc._card === null, 'should clear _card reference');
   assert(pc._mount === null, 'should clear _mount reference');
@@ -224,9 +236,12 @@ test('PatientCard respects showSensitive flag', () => {
     showSensitive: true,
   });
   const card1 = mount1.querySelector('.patient-card-component');
-  assert(card1.innerHTML.includes('Current Prescription'), 'should show prescriptions when showSensitive=true');
+  assert(
+    card1.innerHTML.includes('Current Prescription'),
+    'should show prescriptions when showSensitive=true'
+  );
   assert(card1.innerHTML.includes('SPH:'), 'should show prescription details');
-  
+
   // Test with explicit showSensitive: false (as boolean)
   const mount2 = new MockEl({ showSensitive: 'false' });
   const pc2 = new PatientCard(mount2, {
