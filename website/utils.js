@@ -231,6 +231,35 @@
     return `${prefix}...${suffix}`;
   }
 
+  /**
+   * Format a number with K/M compact suffix (e.g. 1400 → "1.4k", 2500000 -> "2.5M").
+   * @param {number|string} n 
+   * @returns {string} Formatted compact number string, or '—' if invalid.
+   */
+  function formatCompactNumber(n) {
+    if (n === null || n === undefined || n === '') return '—';
+    const num = Number(n);
+    if (isNaN(num)) return '—';
+    if (Math.abs(num) >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (Math.abs(num) >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    return String(num);
+  }
+
+  /**
+   * Escape HTML to prevent XSS from untrusted data values.
+   * @param {string} str
+   * @returns {string} Escaped HTML string
+   */
+  function escapeHtml(str) {
+    if (typeof str !== 'string') return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   return {
     parseDateInput,
     formatDate,
@@ -239,6 +268,8 @@
     formatRelativeTime,
     isExpired,
     formatDuration,
-    truncateAddress
+    truncateAddress,
+    formatCompactNumber,
+    escapeHtml
   };
 }));

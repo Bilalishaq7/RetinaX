@@ -230,3 +230,45 @@ test('utils.js — formatDuration', async (t) => {
     assert.strictEqual(RetinaXUtils.formatDuration(null), '0 Mins');
   });
 });
+
+test('utils.js — formatCompactNumber', async (t) => {
+  await t.test('formats numbers under 1000 without suffix', () => {
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(0), '0');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(42), '42');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(999), '999');
+  });
+
+  await t.test('formats thousands with k suffix', () => {
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(1000), '1k');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(1400), '1.4k');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(10500), '10.5k');
+  });
+
+  await t.test('formats millions with M suffix', () => {
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(1000000), '1M');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(2500000), '2.5M');
+  });
+
+  await t.test('handles numeric strings and invalid inputs', () => {
+    assert.strictEqual(RetinaXUtils.formatCompactNumber('1400'), '1.4k');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber('invalid'), '—');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(null), '—');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(undefined), '—');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(''), '—');
+  });
+});
+
+test('utils.js — escapeHtml', async (t) => {
+  await t.test('escapes special HTML characters', () => {
+    assert.strictEqual(RetinaXUtils.escapeHtml('<script>alert("xss")</script>'), '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+    assert.strictEqual(RetinaXUtils.escapeHtml('Tom & Jerry'), 'Tom &amp; Jerry');
+    assert.strictEqual(RetinaXUtils.escapeHtml("it's cold"), 'it&#39;s cold');
+  });
+
+  await t.test('handles non-string inputs safely', () => {
+    assert.strictEqual(RetinaXUtils.escapeHtml(null), '');
+    assert.strictEqual(RetinaXUtils.escapeHtml(undefined), '');
+    assert.strictEqual(RetinaXUtils.escapeHtml(12345), '');
+  });
+});
+
