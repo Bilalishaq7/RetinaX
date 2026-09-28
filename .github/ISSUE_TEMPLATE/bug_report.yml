@@ -1,0 +1,128 @@
+name: 🐛 Bug Report
+description: Report a bug in Soroban smart contracts
+title: "[BUG]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the following information to help us resolve the issue.
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity Level
+      description: How severe is this bug?
+      options:
+        - Critical (Contract unusable, funds at risk)
+        - High (Major functionality broken)
+        - Medium (Feature impaired but workaround exists)
+        - Low (Minor issue, cosmetic)
+    validations:
+      required: true
+
+  - type: input
+    id: contract-name
+    attributes:
+      label: Contract Name
+      description: Which contract is affected by this bug?
+      placeholder: e.g., identity, ai_integration, analytics, audit, compliance
+    validations:
+      required: true
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug
+      placeholder: Describe what's wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the behavior
+      placeholder: |
+        1. Deploy contract with '...'
+        2. Call function '...' with parameters '...'
+        3. Observe error '...'
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What should happen?
+      placeholder: Describe the expected behavior...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happens?
+      placeholder: Describe what actually happens...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Please provide your environment details
+      value: |
+        - **Rust version**: 
+        - **Soroban SDK version**: 
+        - **Soroban CLI version**: 
+        - **Operating System**: 
+        - **Network** (Testnet/Futurenet/Standalone): 
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs and Error Messages
+      description: Please paste any relevant logs, error messages, or stack traces
+      placeholder: |
+        Paste logs here...
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or Code Snippets
+      description: If applicable, add screenshots or code snippets to help explain the problem
+      placeholder: |
+        ```rust
+        // Your code here
+        ```
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here (e.g., recent changes, specific transaction IDs, contract addresses)
+      placeholder: Any additional information...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our Code of Conduct
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
