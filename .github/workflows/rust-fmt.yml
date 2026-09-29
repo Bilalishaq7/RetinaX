@@ -1,0 +1,54 @@
+name: Rust Format Check
+
+on:
+  push:
+    paths:
+      - 'contracts/**'
+      - 'sdk/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/rust-fmt.yml'
+  pull_request:
+    paths:
+      - 'contracts/**'
+      - 'sdk/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/rust-fmt.yml'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  format-check:
+    name: cargo fmt --check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Check formatting (workspace)
+        run: cargo fmt --all -- --check
+
+      - name: Check formatting (contracts)
+        run: cargo fmt --all -- --check --manifest-path contracts/vision_records/Cargo.toml
