@@ -535,10 +535,7 @@ pub fn verify_node_integrity(env: &Env, record_id: u64, max_depth: u32) -> Verif
 
         if in_edges.is_empty() {
             // Genesis node — recompute the zero-parent commitment.
-            let tag_len = node.record_type_tag.len() as usize;
-            let mut tag_buf = alloc::vec![0u8; tag_len];
-            node.record_type_tag.copy_into_slice(&mut tag_buf);
-            let tag_std = alloc::string::String::from_utf8(tag_buf).unwrap_or_default();
+            let tag_std = crate::soroban_str_to_std(&node.record_type_tag);
             let expected = genesis_commitment(
                 env,
                 node.record_id,

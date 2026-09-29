@@ -21,30 +21,48 @@ use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Symbol, Vec,
 };
 
-/// Preparation data for guardian addition
+/// Preparation data for two-phase commit (2PC) guardian addition.
+///
+/// Stored in temporary storage during `prepare_add_guardian` and validated/consumed
+/// during `commit_add_guardian` or cleaned up by `rollback_add_guardian`.
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct PrepareGuardianAddition {
+    /// The active identity owner requesting guardian addition.
     pub caller: Address,
+    /// The candidate guardian address to be added.
     pub guardian: Address,
+    /// Ledger timestamp when the prepare phase was executed.
     pub timestamp: u64,
 }
 
-/// Preparation data for guardian removal
+/// Preparation data for two-phase commit (2PC) guardian removal.
+///
+/// Stored in temporary storage during `prepare_remove_guardian` and validated/consumed
+/// during `commit_remove_guardian` or cleaned up by `rollback_remove_guardian`.
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct PrepareGuardianRemoval {
+    /// The active identity owner requesting guardian removal.
     pub caller: Address,
+    /// The guardian address to be removed.
     pub guardian: Address,
+    /// Ledger timestamp when the prepare phase was executed.
     pub timestamp: u64,
 }
 
-/// Preparation data for recovery threshold change
+/// Preparation data for two-phase commit (2PC) recovery threshold change.
+///
+/// Stored in temporary storage during `prepare_set_recovery_threshold` and validated/consumed
+/// during `commit_set_recovery_threshold` or cleaned up by `rollback_set_recovery_threshold`.
 #[contracttype]
 #[derive(Clone, Debug)]
 pub struct PrepareThresholdChange {
+    /// The active identity owner requesting threshold update.
     pub caller: Address,
+    /// The proposed M-of-N threshold value (must be 1 <= threshold <= guardian count).
     pub threshold: u32,
+    /// Ledger timestamp when the prepare phase was executed.
     pub timestamp: u64,
 }
 
@@ -151,6 +169,7 @@ impl IdentityContract {
         caller.require_auth();
         let result = recovery::execute_recovery(&env, &owner);
         if let Ok(ref new_addr) = result {
+            Self::migrate_bound_credentials(&env, &owner, new_addr);
             events::emit_recovery_executed(&env, owner.clone(), new_addr.clone());
             events::emit_owner_status_changed(&env, owner, false);
             events::emit_owner_status_changed(&env, new_addr.clone(), true);
@@ -462,7 +481,7 @@ impl IdentityContract {
         expires_at: u64,
     ) -> Result<bool, CredentialError> {
         user.require_auth();
-        credential::verify_zk_credential(
+        let result = credential::verify_zk_credential(
             &env,
             &user,
             resource_id,
@@ -472,7 +491,11 @@ impl IdentityContract {
             public_inputs,
             expires_at,
             0, // Default nonce; caller should set appropriately for replay protection
-        )
+        );
+        if let Ok(verified) = result {
+            events::emit_zk_credential_verified(&env, user, verified);
+        }
+        result
     }
 
     // ── Credential holder binding ────────────────────────────────────────────
@@ -562,6 +585,27 @@ impl IdentityContract {
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────────
+
+    /// Move credential bindings from a recovered identity to its new address.
+    fn migrate_bound_credentials(env: &Env, from: &Address, to: &Address) {
+        let from_key = (Symbol::new(env, HOLDER_BIND_PREFIX), from.clone());
+        let creds: Option<Vec<BytesN<32>>> = env.storage().persistent().get(&from_key);
+        if let Some(creds) = creds {
+            let to_key = (Symbol::new(env, HOLDER_BIND_PREFIX), to.clone());
+            let mut merged: Vec<BytesN<32>> = env
+                .storage()
+                .persistent()
+                .get(&to_key)
+                .unwrap_or_else(|| Vec::new(env));
+            for cred in creds.iter() {
+                if !merged.contains(&cred) {
+                    merged.push_back(cred);
+                }
+            }
+            env.storage().persistent().set(&to_key, &merged);
+            env.storage().persistent().remove(&from_key);
+        }
+    }
 
     fn require_active_owner(env: &Env, caller: &Address) -> Result<(), RecoveryError> {
         if !recovery::is_owner_active(env, caller) {

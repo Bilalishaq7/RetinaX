@@ -75,6 +75,7 @@ fn hash_record(env: &Env, record: &AuditRecord) -> BytesN<32> {
 }
 
 /// Audit trail management engine providing logging, retrieval, and chain integrity verification.
+#[derive(Clone, Debug)]
 pub struct AuditTrail;
 
 impl AuditTrail {

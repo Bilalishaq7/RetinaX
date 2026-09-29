@@ -77,15 +77,6 @@ mod soroban_impl {
     use soroban_sdk::{Bytes, Env, String};
     extern crate alloc;
 
-    /// Copies a [`soroban_sdk::String`] into a host-side `String` without
-    /// relying on the host-only `Display` implementation.
-    fn soroban_string_to_std(s: &String) -> StdString {
-        let len = s.len() as usize;
-        let mut buf = alloc::vec![0u8; len];
-        s.copy_into_slice(&mut buf);
-        StdString::from_utf8(buf).unwrap_or_default()
-    }
-
     #[derive(Clone)]
     pub struct KeyManager {
         pub master: Bytes,
@@ -98,19 +89,19 @@ mod soroban_impl {
 
         pub fn encrypt(&self, env: &Env, plaintext: String) -> String {
             let key = bytes_from_soroban(&self.master);
-            let cipher = xor_and_hex_encode(&key, soroban_string_to_std(&plaintext).as_bytes());
+            let cipher = xor_and_hex_encode(&key, crate::soroban_str_to_std(&plaintext).as_bytes());
             String::from_str(env, &cipher)
         }
 
         pub fn decrypt(&self, env: &Env, ciphertext: String) -> Option<String> {
             let key = bytes_from_soroban(&self.master);
-            let plain = hex_decode_and_xor(&key, &soroban_string_to_std(&ciphertext))?;
+            let plain = hex_decode_and_xor(&key, &crate::soroban_str_to_std(&ciphertext))?;
             Some(String::from_str(env, &plain))
         }
     }
 
     pub fn hex_to_bytes(env: &Env, hexstr: String) -> Option<Bytes> {
-        let raw = hex_to_vec(&soroban_string_to_std(&hexstr))?;
+        let raw = hex_to_vec(&crate::soroban_str_to_std(&hexstr))?;
         let mut out = Bytes::new(env);
         for b in raw {
             out.push_back(b);

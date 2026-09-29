@@ -21,7 +21,8 @@
 
 mod audit;
 pub mod events;
-mod helpers;
+pub mod helpers;
+pub mod offchain;
 pub mod plonk;
 pub mod verifier;
 pub mod vk;
@@ -29,14 +30,17 @@ pub mod vk;
 pub use crate::audit::{AuditRecord, AuditTrail};
 pub use crate::events::AccessRejectedEvent;
 pub use crate::helpers::{MerkleVerifier, ZkAccessHelper};
+pub use crate::offchain::{
+    build_offchain_verification_message, is_trusted_verifier, set_trusted_verifier,
+    OffChainVerificationPayload,
+};
 pub use crate::plonk::PlonkVerifier;
 pub use crate::verifier::{Bn254Verifier, PoseidonHasher, Proof, ProofValidationError, ZkVerifier};
 pub use crate::vk::{G1Point, G2Point, VerificationKey};
 
 use common::whitelist;
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, BytesN, Env,
-    String, Symbol, Vec,
+    contract, contracterror, contracttype, symbol_short, Address, BytesN, Env, String, Symbol, Vec,
 };
 
 /// Storage key for contract administrator address in instance storage.
@@ -219,7 +223,12 @@ fn validate_level4_attributes(request: &AccessRequest) -> Result<(), ContractErr
     Ok(())
 }
 
-#[contractimpl]
+// With the `library` feature, wasm builds skip the contract entry-point exports
+// so that another contract can link this crate without duplicate symbols.
+#[cfg_attr(
+    any(not(feature = "library"), not(target_family = "wasm")),
+    soroban_sdk::contractimpl
+)]
 impl ZkVerifierContract {
     /// Initializes the contract with an initial administrator address.
     ///
@@ -718,6 +727,49 @@ impl ZkVerifierContract {
             );
         }
         Ok(is_valid)
+    }
+
+    /// Lightweight on-chain verification callback that validates an off-chain ZK verification attestation.
+    ///
+    /// Accepts an [`OffChainVerificationPayload`] evaluated by an off-chain verifier node,
+    /// checks contract pause state, user authentication, anti-replay nonce, time validity,
+    /// and verifies the Ed25519 signature via Soroban host crypto primitives.
+    ///
+    /// # Complexity
+    /// - **Time Complexity**: $\mathcal{O}(1)$ native host Ed25519 signature verification.
+    /// - **Space Complexity**: $\mathcal{O}(1)$ fixed-size payload footprint (240 bytes).
+    pub fn verify_offchain_proof(
+        env: Env,
+        payload: OffChainVerificationPayload,
+    ) -> Result<bool, ContractError> {
+        offchain::verify_offchain_attestation(&env, &payload)
+    }
+
+    /// Registers or unregisters a trusted off-chain verifier node's Ed25519 public key.
+    ///
+    /// Only the contract administrator can register trusted verifier nodes.
+    ///
+    /// # Complexity
+    /// - **Time Complexity**: $\mathcal{O}(1)$.
+    /// - **Space Complexity**: $\mathcal{O}(1)$ persistent storage entry.
+    pub fn set_trusted_verifier(
+        env: Env,
+        caller: Address,
+        verifier_pubkey: BytesN<32>,
+        enabled: bool,
+    ) -> Result<(), ContractError> {
+        Self::require_admin(&env, &caller, "set_trusted_verifier")?;
+        offchain::set_trusted_verifier(&env, &verifier_pubkey, enabled);
+        Ok(())
+    }
+
+    /// Checks whether an off-chain verifier node's public key is registered and trusted.
+    ///
+    /// # Complexity
+    /// - **Time Complexity**: $\mathcal{O}(1)$.
+    /// - **Space Complexity**: $\mathcal{O}(1)$.
+    pub fn is_trusted_verifier(env: Env, verifier_pubkey: BytesN<32>) -> bool {
+        offchain::is_trusted_verifier(&env, &verifier_pubkey)
     }
 
     /// Retrieves the current anti-replay nonce for a given user address.

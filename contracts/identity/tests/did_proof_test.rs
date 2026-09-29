@@ -7,7 +7,7 @@ use soroban_sdk::{
     Address, Bytes, BytesN, Env, Vec,
 };
 use zk_verifier::vk::{G1Point, G2Point, VerificationKey};
-use zk_verifier::{ZkAccessHelper, ZkVerifierContract, ZkVerifierContractClient};
+use zk_verifier::{ZkVerifierContract, ZkVerifierContractClient};
 
 fn setup_vk(env: &Env) -> VerificationKey {
     // Standard G1 point (1, 2)
@@ -109,7 +109,7 @@ fn test_zk_proof_verification_integration() {
     let expires_at = env.ledger().timestamp() + 3600;
 
     // Nonce must match verifier's tracker
-    let nonce = verifier_client.get_nonce(&owner);
+    let _nonce = verifier_client.get_nonce(&owner);
 
     // Submit proof via Identity Contract
     // Note: Since we are using mock data, the actual pairing check in Bn254Verifier
@@ -179,6 +179,7 @@ fn test_invalid_proof_rejected_with_error() {
     let (identity_client, _, owner, _) = setup(&env);
 
     // Expired proof
+    env.ledger().set_timestamp(1_000);
     let expires_at = env.ledger().timestamp() - 1;
     let result = identity_client.try_verify_zk_credential(
         &owner,

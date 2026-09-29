@@ -239,6 +239,7 @@ fn g2_to_bytes(point: &G2Point) -> [u8; 128] {
 ///
 /// Implements [`ZkVerifier`] to provide high-assurance proof validation and pairing
 /// verification in Soroban smart contracts.
+#[derive(Clone, Debug)]
 pub struct Bn254Verifier;
 
 impl ZkVerifier for Bn254Verifier {
@@ -356,6 +357,7 @@ impl ZkVerifier for Bn254Verifier {
 /// # Complexity Design
 /// - **Time Complexity**: $\mathcal{O}(N)$ field operations where $N = \text{len}(inputs)$.
 /// - **Space Complexity**: $\mathcal{O}(N)$ byte buffer allocation for converting Soroban vectors.
+#[derive(Clone, Debug)]
 pub struct PoseidonHasher;
 
 impl PoseidonHasher {

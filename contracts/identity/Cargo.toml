@@ -13,7 +13,7 @@ doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
-zk_verifier = { path = "../zk_verifier", default-features = false }
+zk_verifier = { path = "../zk_verifier", default-features = false, features = ["library"] }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }

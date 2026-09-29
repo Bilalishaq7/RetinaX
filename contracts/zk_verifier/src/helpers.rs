@@ -14,6 +14,7 @@ use crate::{
 use soroban_sdk::{BytesN, Env, Vec};
 
 /// Utility for constructing standard [`AccessRequest`] structures from raw byte slices.
+#[derive(Clone, Debug)]
 pub struct ZkAccessHelper;
 
 impl ZkAccessHelper {
@@ -101,6 +102,7 @@ impl ZkAccessHelper {
 /// Enables privacy-preserving data inclusion checks where a patient or provider
 /// proves that a specific medical diagnosis or credential leaf is part of an on-chain
 /// Merkle root commitment without revealing the complete dataset.
+#[derive(Clone, Debug)]
 pub struct MerkleVerifier;
 
 impl MerkleVerifier {

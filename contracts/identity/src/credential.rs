@@ -1,16 +1,38 @@
 #![allow(deprecated)]
 use soroban_sdk::{symbol_short, Address, Bytes, BytesN, Env, Symbol, Vec};
+/// Serialized representation of a BN254 G1 affine point (64 bytes: 32 bytes X, 32 bytes Y).
+pub type VkG1Point = Bytes;
+
+/// Serialized representation of a BN254 G2 affine point (128 bytes: 64 bytes X [c0, c1], 64 bytes Y [c0, c1]).
+pub type VkG2Point = Bytes;
+
+/// Client interface for the `zk_verifier` contract. Declared here because the
+/// crate is linked with its `library` feature, which omits its generated client
+/// in wasm builds.
+#[soroban_sdk::contractclient(name = "ZkVerifierClient")]
+pub trait ZkVerifierInterface {
+    fn verify_access(
+        env: Env,
+        request: zk_verifier::AccessRequest,
+    ) -> Result<bool, zk_verifier::ContractError>;
+}
 
 const ZK_VERIFIER: Symbol = symbol_short!("ZK_VER");
 
+/// Errors that can occur during ZK credential verification operations.
 #[soroban_sdk::contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum CredentialError {
+    /// Caller is not authorized to perform the requested credential operation.
     Unauthorized = 100,
+    /// The ZK verifier contract address has not been configured in contract storage.
     VerifierNotSet = 101,
+    /// ZK proof verification failed, malformed proof buffers, or invalid public inputs.
     ZkVerificationFailed = 102,
+    /// Nonce provided is invalid or has already been consumed (replay protection).
     InvalidNonce = 103,
+    /// Credential expiration timestamp (`expires_at`) is in the past relative to current ledger time.
     CredentialExpired = 104,
 }
 
@@ -39,7 +61,7 @@ pub fn verify_zk_credential(
     }
 
     let verifier_id = get_zk_verifier(env).ok_or(CredentialError::VerifierNotSet)?;
-    let client = zk_verifier::ZkVerifierContractClient::new(env, &verifier_id);
+    let client = ZkVerifierClient::new(env, &verifier_id);
 
     // Reconstruct the proof points from raw bytes.
     // The proof bytes are expected to be in G1 (64 bytes: 32x, 32y) and G2 (128 bytes: 32x0, 32x1, 32y0, 32y1) format.

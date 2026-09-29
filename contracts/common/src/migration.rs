@@ -250,14 +250,10 @@ pub fn resolve_version_for_caller(env: &Env, caller: &Address) -> SchemaVersion 
         .get(&CANARY_VER_KEY)
         .unwrap_or(stored_version(env));
 
-    // Hash the address into a bucket in [0, 100) for canary rollout.
-    // Uses the host-safe `Address::to_string().to_bytes()` path (the host-only
-    // `Display` impl is unavailable when compiling to wasm).
-    let addr_bytes = caller.to_string();
-    let bucket = addr_bytes
-        .to_bytes()
-        .iter()
-        .fold(0u64, |acc, b| acc.wrapping_add(b as u64))
+    let addr_bytes = caller.clone().to_string();
+    let bucket = crate::soroban_str_to_std(&addr_bytes)
+        .chars()
+        .fold(0u64, |acc, c| acc.wrapping_add(c as u64))
         % 100;
 
     if (bucket as u32) < pct {

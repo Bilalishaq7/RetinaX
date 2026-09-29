@@ -1,3 +1,8 @@
+use crate::circuit_breaker::{self, PauseScope};
+use crate::errors::ContractError;
+use crate::events;
+use crate::provider;
+use crate::validation;
 use soroban_sdk::{contracttype, symbol_short, Address, Env, String, Symbol, Vec};
 
 // ── Storage keys ──────────────────────────────────────────────
@@ -66,7 +71,7 @@ pub struct EmergencyAccess {
 pub struct EmergencyAuditEntry {
     pub access_id: u64,
     pub actor: Address,
-    pub action: String, // e.g. "GRANTED", "REVOKED", "ACCESSED", "NOTIFIED"
+    pub action: String, // e.g. "GRANTED", "REVOKED", "ACCESSED", "NOTIFIED", "EXPIRED"
     pub timestamp: u64,
 }
 
@@ -75,7 +80,7 @@ pub struct EmergencyAuditEntry {
 /// Increments and returns the next emergency access ID
 pub fn increment_emergency_counter(env: &Env) -> u64 {
     let current: u64 = env.storage().instance().get(&EMRG_CTR).unwrap_or(0);
-    let next = current + 1;
+    let next = current.saturating_add(1);
     env.storage().instance().set(&EMRG_CTR, &next);
     next
 }
@@ -104,8 +109,6 @@ pub fn has_active_emergency_access(
     patient: &Address,
     requester: &Address,
 ) -> Option<EmergencyAccess> {
-    // We need to iterate through potential access IDs
-    // For efficiency, we'll check recent IDs (last 100)
     let counter: u64 = env.storage().instance().get(&EMRG_CTR).unwrap_or(0);
     let start_id = if counter > 100 { counter - 100 } else { 1 };
 
@@ -122,19 +125,6 @@ pub fn has_active_emergency_access(
         }
     }
     None
-}
-
-/// Revokes an emergency access grant
-pub fn revoke_emergency_access(env: &Env, access_id: u64) -> Option<EmergencyAccess> {
-    let key = (EMRG_ACCESS, access_id);
-    if let Some(mut access) = env.storage().persistent().get::<_, EmergencyAccess>(&key) {
-        access.status = EmergencyStatus::Revoked;
-        env.storage().persistent().set(&key, &access);
-        extend_ttl_emergency_key(env, &key);
-        Some(access)
-    } else {
-        None
-    }
 }
 
 /// Adds an audit entry for emergency access actions
@@ -189,7 +179,123 @@ pub fn get_patient_emergency_accesses(env: &Env, patient: &Address) -> Vec<Emerg
     accesses
 }
 
-/// Expires emergency accesses that have passed their expiration time
+// ── Business Logic & Event Emission Functions ─────────────────
+
+/// Grants an emergency access request, validates requirements, logs audit entry, and emits events.
+pub fn grant_emergency_access(
+    env: &Env,
+    requester: &Address,
+    patient: &Address,
+    condition: EmergencyCondition,
+    attestation: String,
+    duration_seconds: u64,
+    notified_contacts: Vec<Address>,
+) -> Result<u64, ContractError> {
+    circuit_breaker::require_not_paused(env, &PauseScope::Global)?;
+    requester.require_auth();
+
+    // Verify requester is a registered/verified provider
+    if !provider::is_provider_verified(env, requester) {
+        return Err(ContractError::Unauthorized);
+    }
+
+    // Validate attestation and duration
+    validation::validate_string_length(&attestation, 1, 1024)?;
+    validation::validate_duration(duration_seconds)?;
+
+    let now = env.ledger().timestamp();
+    let expires_at = now.saturating_add(duration_seconds);
+    let access_id = increment_emergency_counter(env);
+
+    let access = EmergencyAccess {
+        id: access_id,
+        patient: patient.clone(),
+        requester: requester.clone(),
+        condition: condition.clone(),
+        attestation: attestation.clone(),
+        granted_at: now,
+        expires_at,
+        status: EmergencyStatus::Active,
+        notified_contacts: notified_contacts.clone(),
+    };
+
+    set_emergency_access(env, &access);
+
+    // Audit log entry
+    let audit_entry = EmergencyAuditEntry {
+        access_id,
+        actor: requester.clone(),
+        action: String::from_str(env, "GRANTED"),
+        timestamp: now,
+    };
+    add_audit_entry(env, &audit_entry);
+
+    // Emit Soroban event for granted emergency access
+    events::publish_emergency_access_granted(
+        env,
+        access_id,
+        patient.clone(),
+        requester.clone(),
+        condition,
+        expires_at,
+    );
+
+    // Emit Soroban events for notified contacts
+    for i in 0..notified_contacts.len() {
+        if let Some(contact) = notified_contacts.get(i) {
+            events::publish_emergency_contact_notified(
+                env,
+                access_id,
+                patient.clone(),
+                contact,
+            );
+        }
+    }
+
+    Ok(access_id)
+}
+
+/// Revokes an active emergency access grant, logs audit entry, and emits event.
+pub fn revoke_emergency_access(
+    env: &Env,
+    revoker: &Address,
+    access_id: u64,
+) -> Result<(), ContractError> {
+    circuit_breaker::require_not_paused(env, &PauseScope::Global)?;
+    revoker.require_auth();
+
+    let key = (EMRG_ACCESS, access_id);
+    let mut access = env
+        .storage()
+        .persistent()
+        .get::<_, EmergencyAccess>(&key)
+        .ok_or(ContractError::RecordNotFound)?;
+
+    // Authorization: patient, requester, or authorized actor can revoke
+    if *revoker != access.patient && *revoker != access.requester {
+        return Err(ContractError::Unauthorized);
+    }
+
+    access.status = EmergencyStatus::Revoked;
+    env.storage().persistent().set(&key, &access);
+    extend_ttl_emergency_key(env, &key);
+
+    let now = env.ledger().timestamp();
+    let audit_entry = EmergencyAuditEntry {
+        access_id,
+        actor: revoker.clone(),
+        action: String::from_str(env, "REVOKED"),
+        timestamp: now,
+    };
+    add_audit_entry(env, &audit_entry);
+
+    // Emit Soroban event for revoked emergency access
+    events::publish_emergency_access_revoked(env, access_id, access.patient, revoker.clone());
+
+    Ok(())
+}
+
+/// Expires emergency accesses that have passed their expiration time, emits expiration events.
 pub fn expire_emergency_accesses(env: &Env) -> u32 {
     let mut expired_count = 0u32;
     let counter: u64 = env.storage().instance().get(&EMRG_CTR).unwrap_or(0);
@@ -203,6 +309,18 @@ pub fn expire_emergency_accesses(env: &Env) -> u32 {
                 access.status = EmergencyStatus::Expired;
                 env.storage().persistent().set(&key, &access);
                 extend_ttl_emergency_key(env, &key);
+
+                let audit_entry = EmergencyAuditEntry {
+                    access_id: id,
+                    actor: access.patient.clone(),
+                    action: String::from_str(env, "EXPIRED"),
+                    timestamp: current_time,
+                };
+                add_audit_entry(env, &audit_entry);
+
+                // Emit Soroban event for expired emergency access
+                events::publish_emergency_access_expired(env, id, access.patient);
+
                 expired_count += 1;
             }
         }

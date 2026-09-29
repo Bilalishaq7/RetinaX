@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
       duration: 800,
       easing: 'ease-out-cubic',
       once: true,
-      offset: 100
+      offset: 100,
     });
   }
 
@@ -35,41 +35,58 @@ function initGSAPAnimations() {
   // Hero Section Staggered Entrance
   const heroTl = gsap.timeline();
 
-  heroTl.from('.hero-tag', {
-    opacity: 0,
-    y: -20,
-    duration: 0.6,
-    ease: 'power2.out'
-  })
-  .from('.hero-title', {
-    opacity: 0,
-    y: 30,
-    duration: 0.8,
-    ease: 'power3.out'
-  }, '-=0.3')
-  .from('.hero-sub', {
-    opacity: 0,
-    y: 20,
-    duration: 0.7,
-    ease: 'power2.out'
-  }, '-=0.4')
-  .from('.hero-cta-group .btn', {
-    opacity: 0,
-    y: 20,
-    stagger: 0.15,
-    duration: 0.6,
-    ease: 'back.out(1.7)'
-  }, '-=0.4')
-  .from('.hero-image-wrapper', {
-    opacity: 0,
-    scale: 0.95,
-    duration: 0.9,
-    ease: 'power3.out'
-  }, '-=0.8');
+  heroTl
+    .from('.hero-tag', {
+      opacity: 0,
+      y: -20,
+      duration: 0.6,
+      ease: 'power2.out',
+    })
+    .from(
+      '.hero-title',
+      {
+        opacity: 0,
+        y: 30,
+        duration: 0.8,
+        ease: 'power3.out',
+      },
+      '-=0.3'
+    )
+    .from(
+      '.hero-sub',
+      {
+        opacity: 0,
+        y: 20,
+        duration: 0.7,
+        ease: 'power2.out',
+      },
+      '-=0.4'
+    )
+    .from(
+      '.hero-cta-group .btn',
+      {
+        opacity: 0,
+        y: 20,
+        stagger: 0.15,
+        duration: 0.6,
+        ease: 'back.out(1.7)',
+      },
+      '-=0.4'
+    )
+    .from(
+      '.hero-image-wrapper',
+      {
+        opacity: 0,
+        scale: 0.95,
+        duration: 0.9,
+        ease: 'power3.out',
+      },
+      '-=0.8'
+    );
 
   // GSAP Hover Micro-Interactions on Contract Cards
   const cards = document.querySelectorAll('.contract-card, .segment-img-card');
-  cards.forEach(card => {
+  cards.forEach((card) => {
     card.addEventListener('mouseenter', () => {
       gsap.to(card, { y: -6, duration: 0.25, ease: 'power2.out' });
     });
@@ -86,19 +103,23 @@ function initDemoTabs() {
   const tabs = document.querySelectorAll('.demo-tab-btn');
   const panels = document.querySelectorAll('.demo-tab-panel');
 
-  tabs.forEach(tab => {
+  tabs.forEach((tab) => {
     tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'));
-      panels.forEach(p => p.classList.remove('active'));
+      tabs.forEach((t) => t.classList.remove('active'));
+      panels.forEach((p) => p.classList.remove('active'));
 
       tab.classList.add('active');
       const targetId = `panel-${tab.dataset.tab}`;
       const targetPanel = document.getElementById(targetId);
-      
+
       if (targetPanel) {
         targetPanel.classList.add('active');
         if (typeof gsap !== 'undefined') {
-          gsap.fromTo(targetPanel, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+          gsap.fromTo(
+            targetPanel,
+            { opacity: 0, y: 10 },
+            { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
+          );
         }
       }
     });
@@ -117,7 +138,10 @@ function initRBACSimulator() {
 
   if (durSlider && durVal) {
     durSlider.addEventListener('input', (e) => {
-      durVal.textContent = e.target.value;
+      const hours = e.target.value;
+      durVal.textContent = hours;
+      durSlider.setAttribute('aria-valuenow', hours);
+      durSlider.setAttribute('aria-valuetext', `${hours} Hours`);
       updateRBACPreview();
     });
   }
@@ -127,7 +151,8 @@ function initRBACSimulator() {
   }
 
   if (grantBtn) {
-    grantBtn.addEventListener('click', () => {
+    grantBtn.closest('form').addEventListener('submit', (e) => {
+      e.preventDefault();
       grantBtn.textContent = '⚡ Executing Soroban require_auth()...';
       grantBtn.style.opacity = '0.7';
 
@@ -147,6 +172,10 @@ function initRBACSimulator() {
     const doctor = doctorSelect ? doctorSelect.value : 'GAB...DR_SMITH_OPTOMETRY';
     const hours = durSlider ? durSlider.value : '24';
     const statusStr = executed ? 'SUCCESS (LEDGER_ENFORCED)' : 'PENDING_SIGNATURE';
+    const durationText =
+      typeof window !== 'undefined' && window.RetinaXUtils && window.RetinaXUtils.formatDuration
+        ? window.RetinaXUtils.formatDuration(Number(hours) * 3600)
+        : `${hours} Hours`;
 
     if (previewCode) {
       previewCode.textContent = `// Soroban Call: contracts/vision_records::grant_access()
@@ -154,7 +183,7 @@ fn grant_access(env: Env, patient: Address, doctor: Address, ttl: u64) {
     patient.require_auth(); // Validated GDC...PATIENT_KEY_99X
     
     // Target Clinic: ${doctor}
-    // Duration TTL: ${hours} Hours (${hours * 3600} Seconds)
+    // Duration TTL: ${durationText} (${hours * 3600} Seconds)
     let grant = AccessGrant {
         granted_at: env.ledger().timestamp(),
         expires_at: env.ledger().timestamp() + ${hours * 3600},
@@ -183,12 +212,15 @@ function initZKSimulator() {
     acuitySlider.addEventListener('input', (e) => {
       const val = e.target.value;
       acuityVal.textContent = `20/${val}`;
+      acuitySlider.setAttribute('aria-valuenow', val);
+      acuitySlider.setAttribute('aria-valuetext', `20/${val}`);
       updateZKPreview();
     });
   }
 
   if (genZkBtn) {
-    genZkBtn.addEventListener('click', () => {
+    genZkBtn.closest('form').addEventListener('submit', (e) => {
+      e.preventDefault();
       genZkBtn.textContent = '🛡️ Generating Groth16 Proof...';
 
       setTimeout(() => {
@@ -230,7 +262,8 @@ function initAISimulator() {
   const previewAiCode = document.getElementById('preview-ai-code');
 
   if (testAiBtn) {
-    testAiBtn.addEventListener('click', () => {
+    testAiBtn.closest('form').addEventListener('submit', (e) => {
+      e.preventDefault();
       const status = aiStatusSelect ? aiStatusSelect.value : 'healthy';
 
       testAiBtn.textContent = '🤖 Evaluating Diagnostic Oracles...';
@@ -270,13 +303,18 @@ function initFHIRSimulator() {
   const previewFhirCode = document.getElementById('preview-fhir-code');
 
   if (convertFhirBtn) {
-    convertFhirBtn.addEventListener('click', () => {
+    convertFhirBtn.closest('form').addEventListener('submit', (e) => {
+      e.preventDefault();
       const type = fhirTypeSelect ? fhirTypeSelect.value : 'refraction';
 
       convertFhirBtn.textContent = '🏥 Mapping to FHIR v4 JSON...';
 
       setTimeout(() => {
         convertFhirBtn.textContent = 'Generate FHIR v4 Payload';
+        const fhirEffectiveDate =
+          typeof window !== 'undefined' && window.RetinaXUtils && window.RetinaXUtils.formatFHIRDate
+            ? window.RetinaXUtils.formatFHIRDate(new Date())
+            : '2026-08-06T23:45:00Z';
 
         if (type === 'iop') {
           if (previewFhirCode) {
@@ -296,7 +334,7 @@ function initFHIRSimulator() {
     "unit": "mmHg",
     "system": "http://unitsofmeasure.org"
   },
-  "effectiveDateTime": "2026-08-06T23:45:00Z"
+  "effectiveDateTime": "${fhirEffectiveDate}"
 }`;
           }
         } else {
@@ -313,7 +351,7 @@ function initFHIRSimulator() {
   },
   "subject": { "reference": "Patient/GDC...PATIENT_KEY_99X" },
   "conclusion": "Normal refraction. Prescription: Right Eye -1.25 SPH, Left Eye -1.00 SPH",
-  "effectiveDateTime": "2026-08-06T23:45:00Z"
+  "effectiveDateTime": "${fhirEffectiveDate}"
 }`;
           }
         }
@@ -334,34 +372,39 @@ function initDataFetchSimulator() {
   const fetchStatusIndicator = document.getElementById('fetch-status-indicator');
 
   if (fetchBtn) {
-    fetchBtn.addEventListener('click', () => {
+    fetchBtn.closest('form').addEventListener('submit', (e) => {
+      e.preventDefault();
       // 1. Hide idle and result, show placeholder
-      if(fetchIdle) fetchIdle.style.display = 'none';
-      if(fetchResult) fetchResult.style.display = 'none';
-      if(fetchPlaceholder) fetchPlaceholder.style.display = 'flex';
-      
+      if (fetchIdle) fetchIdle.style.display = 'none';
+      if (fetchResult) fetchResult.style.display = 'none';
+      if (fetchPlaceholder) fetchPlaceholder.style.display = 'flex';
+
       fetchBtn.textContent = 'Fetching from IPFS...';
       fetchBtn.disabled = true;
       fetchBtn.style.opacity = '0.7';
 
-      if(fetchStatusLabel) fetchStatusLabel.textContent = 'DATA_RETRIEVAL IN_PROGRESS';
-      if(fetchStatusIndicator) fetchStatusIndicator.textContent = 'FETCHING_CID';
+      if (fetchStatusLabel) fetchStatusLabel.textContent = 'DATA_RETRIEVAL IN_PROGRESS';
+      if (fetchStatusIndicator) fetchStatusIndicator.textContent = 'FETCHING_CID';
 
       // 2. Simulate network delay (e.g. 2.5 seconds)
       setTimeout(() => {
         // 3. Hide placeholder, show result
-        if(fetchPlaceholder) fetchPlaceholder.style.display = 'none';
-        if(fetchResult) fetchResult.style.display = 'block';
+        if (fetchPlaceholder) fetchPlaceholder.style.display = 'none';
+        if (fetchResult) fetchResult.style.display = 'block';
 
         fetchBtn.textContent = 'Fetch Clinical Data';
         fetchBtn.disabled = false;
         fetchBtn.style.opacity = '1';
 
-        if(fetchStatusLabel) fetchStatusLabel.textContent = 'DATA_RETRIEVAL SUCCESS';
-        if(fetchStatusIndicator) fetchStatusIndicator.textContent = 'DECRYPTED_PAYLOAD';
-        
+        if (fetchStatusLabel) fetchStatusLabel.textContent = 'DATA_RETRIEVAL SUCCESS';
+        if (fetchStatusIndicator) fetchStatusIndicator.textContent = 'DECRYPTED_PAYLOAD';
+
         if (typeof gsap !== 'undefined' && fetchResult) {
-          gsap.fromTo(fetchResult, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+          gsap.fromTo(
+            fetchResult,
+            { opacity: 0, y: 10 },
+            { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
+          );
         }
       }, 2500);
     });

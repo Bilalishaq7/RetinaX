@@ -93,7 +93,7 @@ test('utils.js — truncateAddress', async (t) => {
     const addr = 'GCZJM2KLV4LHX6SQQ3JY4OVKCQH4XLXJXS6QIVTGQXVHXKZXKP5ABCD';
     const result1 = RetinaXUtils.truncateAddress(addr, 0, 4);
     assert.strictEqual(result1, '...ABCD');
-    
+
     const result2 = RetinaXUtils.truncateAddress(addr, 6, 0);
     assert.strictEqual(result2, 'GCZJM2...');
   });
@@ -228,5 +228,49 @@ test('utils.js — formatDuration', async (t) => {
     assert.strictEqual(RetinaXUtils.formatDuration(0), '0 Mins');
     assert.strictEqual(RetinaXUtils.formatDuration(-10), '0 Mins');
     assert.strictEqual(RetinaXUtils.formatDuration(null), '0 Mins');
+  });
+});
+
+test('utils.js — formatCompactNumber', async (t) => {
+  await t.test('formats numbers under 1000 without suffix', () => {
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(0), '0');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(42), '42');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(999), '999');
+  });
+
+  await t.test('formats thousands with k suffix', () => {
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(1000), '1k');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(1400), '1.4k');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(10500), '10.5k');
+  });
+
+  await t.test('formats millions with M suffix', () => {
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(1000000), '1M');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(2500000), '2.5M');
+  });
+
+  await t.test('handles numeric strings and invalid inputs', () => {
+    assert.strictEqual(RetinaXUtils.formatCompactNumber('1400'), '1.4k');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber('invalid'), '—');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(null), '—');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(undefined), '—');
+    assert.strictEqual(RetinaXUtils.formatCompactNumber(''), '—');
+  });
+});
+
+test('utils.js — escapeHtml', async (t) => {
+  await t.test('escapes special HTML characters', () => {
+    assert.strictEqual(
+      RetinaXUtils.escapeHtml('<script>alert("xss")</script>'),
+      '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+    );
+    assert.strictEqual(RetinaXUtils.escapeHtml('Tom & Jerry'), 'Tom &amp; Jerry');
+    assert.strictEqual(RetinaXUtils.escapeHtml("it's cold"), 'it&#39;s cold');
+  });
+
+  await t.test('handles non-string inputs safely', () => {
+    assert.strictEqual(RetinaXUtils.escapeHtml(null), '');
+    assert.strictEqual(RetinaXUtils.escapeHtml(undefined), '');
+    assert.strictEqual(RetinaXUtils.escapeHtml(12345), '');
   });
 });
