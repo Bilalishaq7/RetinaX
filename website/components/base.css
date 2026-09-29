@@ -1,0 +1,86 @@
+/* ==========================================================================
+   RetinaX — Base — Design Tokens, Reset & Layout
+   Design System: RetinaX Clinical (Serene Clinical White, Slate Navy, Medical Teal)
+   Source: split from website/styles.css — see website/styles.css aggregator
+   ========================================================================== */
+
+/* ==========================================================================
+   RetinaX — Clinical Medical Design System (HERO BACKGROUND WITH DARK OVERLAY)
+   Theme: Serene Clinical White, Slate Navy & Medical Teal
+   Typography: Fraunces Editorial Serif + Plus Jakarta Sans UI
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+:root {
+  /* Solid Clinical Color Palette */
+  --bg-page: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-dark-card: #0f172a;
+  
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-light: #64748b;
+  --text-white: #ffffff;
+  
+  --clinical-teal: #0d9488;
+  --clinical-teal-light: #ccfbf1;
+  --clinical-teal-dark: #115e59;
+  --clinical-blue: #0284c7;
+  --clinical-blue-light: #e0f2fe;
+  --clinical-navy: #1e293b;
+  
+  --status-green: #16a34a;
+  --status-green-bg: #dcfce7;
+  --status-amber: #d97706;
+  --status-amber-bg: #fef3c7;
+  --status-rose: #e11d48;
+  --status-rose-bg: #ffe4e6;
+  --status-gray: #64748b;
+  --status-gray-bg: #f1f5f9;
+  
+  --border-color: #e2e8f0;
+  --border-accent: #cbd5e1;
+  
+  /* High-End Typography */
+  --font-serif: 'Fraunces', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  /* Crisp Shadows & Radii */
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --radius-sm: 6px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-family: var(--font-sans);
+  background-color: var(--bg-page);
+  color: var(--text-main);
+  overflow-x: hidden;
+}
+
+body {
+  background-color: var(--bg-page);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  position: relative;
+  z-index: 2;
+}

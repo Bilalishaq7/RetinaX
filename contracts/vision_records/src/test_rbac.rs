@@ -8,8 +8,18 @@
 use super::{
     ConsentType, CredentialType, Permission, RecordType, Role, SensitivityLevel, TimeRestriction,
     VisionRecordsContract, VisionRecordsContractClient,
+    ConsentType, ContractError, CredentialType, Permission, RecordType, Role,
+    SensitivityLevel, TimeRestriction, VisionRecordsContract, VisionRecordsContractClient,
 };
-use soroban_sdk::{testutils::Address as _, testutils::Ledger as _, Address, Env, String, Vec};
+use crate::events::{
+    AclGroupCreatedEvent, AclGroupMembershipEvent, PermissionGrantedEvent, PermissionRevokedEvent,
+    RoleDelegatedEvent,
+};
+use crate::rbac::MAX_RBAC_STRING_LEN;
+use soroban_sdk::{
+    symbol_short, testutils::Address as _, testutils::Events as _, testutils::Ledger as _, vec,
+    Address, Env, IntoVal, String, Vec,
+};
 
 fn setup_test() -> (Env, VisionRecordsContractClient<'static>, Address) {
     let env = Env::default();
@@ -786,7 +796,7 @@ fn test_happy_path_set_record_sensitivity_endpoint() {
         &String::from_str(&env, "ProviderDan"),
     );
 
-    let data_hash = String::from_str(&env, "a1b2c3d4e5f6");
+    let data_hash = String::from_str(&env, "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4");
     let record_id = client.add_record(
         &provider,
         &patient,
@@ -874,4 +884,236 @@ fn test_happy_path_check_permission_all_roles() {
     assert!(!client.check_permission(&patient, &Permission::WriteRecord));
     assert!(!client.check_permission(&patient, &Permission::ManageAccess));
     assert!(!client.check_permission(&patient, &Permission::ReadAnyRecord));
+}
+
+// ======================== RBAC events (#38) ========================
+
+fn register(
+    env: &Env,
+    client: &VisionRecordsContractClient,
+    admin: &Address,
+    role: Role,
+) -> Address {
+    let user = Address::generate(env);
+    client.register_user(admin, &user, &role, &String::from_str(env, "User"));
+    user
+}
+
+#[test]
+fn test_permission_changes_emit_events_only_on_change() {
+    let (env, client, admin) = setup_test();
+    let staff = register(&env, &client, &admin, Role::Staff);
+
+    client.grant_custom_permission(&admin, &staff, &Permission::WriteRecord);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (symbol_short!("PERM_GRT"), staff.clone()).into_val(&env),
+                PermissionGrantedEvent {
+                    user: staff.clone(),
+                    permission: Permission::WriteRecord,
+                    granted_by: admin.clone(),
+                    timestamp: env.ledger().timestamp(),
+                }
+                .into_val(&env),
+            ),
+        ]
+    );
+    // Granting a permission already held changes nothing.
+    client.grant_custom_permission(&admin, &staff, &Permission::WriteRecord);
+    assert!(env.events().all().events().is_empty());
+
+    client.revoke_custom_permission(&admin, &staff, &Permission::WriteRecord);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (symbol_short!("PERM_REV"), staff.clone()).into_val(&env),
+                PermissionRevokedEvent {
+                    user: staff.clone(),
+                    permission: Permission::WriteRecord,
+                    revoked_by: admin.clone(),
+                    timestamp: env.ledger().timestamp(),
+                }
+                .into_val(&env),
+            ),
+        ]
+    );
+    client.revoke_custom_permission(&admin, &staff, &Permission::WriteRecord);
+    assert!(env.events().all().events().is_empty());
+}
+
+#[test]
+fn test_role_delegation_emits_event() {
+    let (env, client, admin) = setup_test();
+    let delegator = register(&env, &client, &admin, Role::Optometrist);
+    let delegatee = Address::generate(&env);
+    let expires_at = env.ledger().timestamp() + 86_400;
+
+    client.delegate_role(&delegator, &delegatee, &Role::Optometrist, &expires_at);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (
+                    symbol_short!("ROLE_DEL"),
+                    delegator.clone(),
+                    delegatee.clone()
+                )
+                    .into_val(&env),
+                RoleDelegatedEvent {
+                    delegator,
+                    delegatee,
+                    role: Role::Optometrist,
+                    expires_at,
+                    timestamp: env.ledger().timestamp(),
+                }
+                .into_val(&env),
+            ),
+        ]
+    );
+}
+
+#[test]
+fn test_acl_group_changes_emit_events_only_on_change() {
+    let (env, client, admin) = setup_test();
+    let user = Address::generate(&env);
+    let group = String::from_str(&env, "researchers");
+    let permissions = vec![&env, Permission::ReadAnyRecord];
+
+    client.create_acl_group(&admin, &group, &permissions);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (symbol_short!("GRP_CRT"), group.clone()).into_val(&env),
+                AclGroupCreatedEvent {
+                    group_name: group.clone(),
+                    permissions,
+                    created_by: admin.clone(),
+                    timestamp: env.ledger().timestamp(),
+                }
+                .into_val(&env),
+            ),
+        ]
+    );
+
+    let membership = AclGroupMembershipEvent {
+        user: user.clone(),
+        group_name: group.clone(),
+        changed_by: admin.clone(),
+        timestamp: env.ledger().timestamp(),
+    };
+    client.add_user_to_group(&admin, &user, &group);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (symbol_short!("GRP_ADD"), user.clone(), group.clone()).into_val(&env),
+                membership.clone().into_val(&env),
+            ),
+        ]
+    );
+    client.add_user_to_group(&admin, &user, &group);
+    assert!(env.events().all().events().is_empty());
+
+    client.remove_user_from_group(&admin, &user, &group);
+    assert_eq!(
+        env.events().all(),
+        vec![
+            &env,
+            (
+                client.address.clone(),
+                (symbol_short!("GRP_REM"), user.clone(), group.clone()).into_val(&env),
+                membership.into_val(&env),
+            ),
+        ]
+    );
+    client.remove_user_from_group(&admin, &user, &group);
+    assert!(env.events().all().events().is_empty());
+    assert!(client.get_user_groups(&user).is_empty());
+}
+
+// ======================== RBAC string validation (#39) ========================
+
+#[test]
+fn test_rbac_strings_are_length_bounded() {
+    let (env, client, admin) = setup_test();
+    let user = Address::generate(&env);
+    let empty = String::from_str(&env, "");
+    let too_long = String::from_bytes(&env, &[b'g'; MAX_RBAC_STRING_LEN as usize + 1]);
+    let longest = String::from_bytes(&env, &[b'g'; MAX_RBAC_STRING_LEN as usize]);
+    let invalid = Err(Ok(ContractError::InvalidInput));
+
+    for name in [&empty, &too_long] {
+        assert_eq!(
+            client.try_create_acl_group(&admin, name, &Vec::new(&env)),
+            invalid
+        );
+        assert_eq!(client.try_add_user_to_group(&admin, &user, name), invalid);
+        assert_eq!(
+            client.try_remove_user_from_group(&admin, &user, name),
+            invalid
+        );
+    }
+    client.create_acl_group(&admin, &longest, &Vec::new(&env));
+    client.add_user_to_group(&admin, &user, &longest);
+
+    let create_policy = |policy_id: &String, name: &String| {
+        client.try_create_access_policy(
+            &admin,
+            policy_id,
+            name,
+            &Role::Optometrist,
+            &TimeRestriction::None,
+            &CredentialType::None,
+            &SensitivityLevel::Standard,
+            &false,
+        )
+    };
+    for bad in [&empty, &too_long] {
+        assert_eq!(create_policy(bad, &longest), invalid);
+        assert_eq!(create_policy(&longest, bad), invalid);
+    }
+    assert_eq!(create_policy(&longest, &longest), Ok(Ok(())));
+}
+
+#[test]
+fn test_access_control_micro_contract_integration() {
+    let (env, client, admin) = setup_test();
+
+    // 1. Deploy the AccessControl micro-contract
+    let access_control_id = env.register(access_control::AccessControlContract, ());
+    let ac_client = access_control::AccessControlContractClient::new(&env, &access_control_id);
+    ac_client.initialize(&admin);
+
+    // 2. Configure access_control in vision_records
+    assert!(client.get_access_control().is_none());
+    client.set_access_control(&admin, &access_control_id);
+    assert_eq!(client.get_access_control(), Some(access_control_id));
+
+    // 3. User initially has no permissions in access_control
+    let doctor = Address::generate(&env);
+    assert!(!client.check_permission(&doctor, &Permission::WriteRecord));
+
+    // 4. Assign role in access_control micro-contract
+    ac_client.assign_role(&admin, &doctor, &access_control::Role::Ophthalmologist, &0);
+
+    // 5. VisionRecords queries access_control micro-contract cross-contract and confirms permission!
+    assert!(client.check_permission(&doctor, &Permission::WriteRecord));
+    assert!(client.check_permission(&doctor, &Permission::ReadAnyRecord));
+    assert!(client.check_permission(&doctor, &Permission::ManageAccess));
+    assert!(client.check_permission(&doctor, &Permission::ManageUsers));
+    assert!(!client.check_permission(&doctor, &Permission::SystemAdmin));
 }

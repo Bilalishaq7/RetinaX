@@ -18,6 +18,18 @@
 
 use soroban_sdk::contracterror;
 
+extern crate alloc;
+
+/// Copy a `soroban_sdk::String` into an owned `alloc::string::String`.
+///
+/// `soroban_sdk::String` only implements `Display` when `std` is available, so
+/// `.to_string()` does not compile for the wasm target; this works everywhere.
+pub(crate) fn soroban_str_to_std(s: &soroban_sdk::String) -> alloc::string::String {
+    let mut buf = alloc::vec![0u8; s.len() as usize];
+    s.copy_into_slice(&mut buf);
+    alloc::string::String::from_utf8_lossy(&buf).into_owned()
+}
+
 // ── Modules ──────────────────────────────────────────────────────────────────
 
 #[allow(clippy::enum_variant_names)]

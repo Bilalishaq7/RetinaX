@@ -185,6 +185,37 @@ make stop-local
 
 ---
 
+## Micro-Contract Architecture
+
+The following diagram details the dependency graph and cross-contract call flow between the core micro-contracts (`audit`, `identity`, `key_manager`, `zk_verifier`, `vision_records`):
+
+```mermaid
+graph TD
+    subgraph MicroContractArch ["RetinaX Micro-Contract Architecture & Call Flow"]
+        ID["<b>Identity Contract</b><br/>(DID & Social Recovery)"]
+        KM["<b>Key Manager Contract</b><br/>(HD Key Derivation & Rotation)"]
+        ZK["<b>ZK Verifier Contract</b><br/>(Zero-Knowledge Proof Verification)"]
+        VR["<b>Vision Records Contract</b><br/>(Optometry Records & Consent)"]
+        AU["<b>Audit Contract</b><br/>(Immutable Log Chaining)"]
+    end
+
+    ID -->|Delegates Proof Verification| ZK
+    KM -->|Queries Guardians & Owners| ID
+    KM -->|Logs Key Events| AU
+    VR -->|Verifies Key Materials & Policies| KM
+    VR -->|Validates Patient DIDs & Credential Claims| ID
+    VR -->|Verifies Non-Interactive ZK Proofs| ZK
+    VR -->|Appends Access & Change Audits| AU
+
+    style ID fill:#2b3a4a,stroke:#4a90e2,stroke-width:2px,color:#fff
+    style KM fill:#2b3a4a,stroke:#50e3c2,stroke-width:2px,color:#fff
+    style ZK fill:#2b3a4a,stroke:#b8e986,stroke-width:2px,color:#fff
+    style VR fill:#2b3a4a,stroke:#f5a623,stroke-width:2px,color:#fff
+    style AU fill:#2b3a4a,stroke:#bd10e0,stroke-width:2px,color:#fff
+```
+
+---
+
 ## Project Structure
 
 ```

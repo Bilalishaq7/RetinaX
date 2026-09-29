@@ -52,7 +52,7 @@
   } else {
     root.PatientCard = factory();
   }
-}(typeof self !== 'undefined' ? self : this, function () {
+})(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
   /* ------------------------------------------------------------------
@@ -61,17 +61,20 @@
 
   /** Condition severity badge configurations */
   const CONDITION_SEVERITY = {
-    Myopia:       { cls: 'patient-card__condition--mild',    icon: '👓' },
-    Astigmatism:  { cls: 'patient-card__condition--mild',    icon: '👁️' },
-    Glaucoma:     { cls: 'patient-card__condition--serious', icon: '⚠️' },
-    Cataracts:    { cls: 'patient-card__condition--moderate',icon: '🔍' },
-    Diabetic:     { cls: 'patient-card__condition--serious', icon: '🩺' },
+    Myopia: { cls: 'patient-card__condition--mild', icon: '👓' },
+    Astigmatism: { cls: 'patient-card__condition--mild', icon: '👁️' },
+    Glaucoma: { cls: 'patient-card__condition--serious', icon: '⚠️' },
+    Cataracts: { cls: 'patient-card__condition--moderate', icon: '🔍' },
+    Diabetic: { cls: 'patient-card__condition--serious', icon: '🩺' },
   };
 
   /** Medical icons SVG */
-  const SVG_CALENDAR = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.75-4H2.75a.25.25 0 0 0-.25.25V6h11V3.75a.25.25 0 0 0-.25-.25Z"/></svg>';
-  const SVG_MEDICAL = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3.5 0A1.5 1.5 0 0 0 2 1.5v13A1.5 1.5 0 0 0 3.5 16h9a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 12.5 0h-9Zm0 1.5h9v13h-9v-13ZM7 4.75A.75.75 0 0 1 7.75 4h.5a.75.75 0 0 1 0 1.5h-.5A.75.75 0 0 1 7 4.75ZM5.75 7a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5ZM5 10.25a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1-.75-.75Z"/></svg>';
-  const SVG_CLOCK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm7-3.25v2.992l2.028.812a.75.75 0 0 1-.557 1.392l-2.5-1A.751.751 0 0 1 7 8.25v-3.5a.75.75 0 0 1 1.5 0Z"/></svg>';
+  const SVG_CALENDAR =
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.75-4H2.75a.25.25 0 0 0-.25.25V6h11V3.75a.25.25 0 0 0-.25-.25Z"/></svg>';
+  const SVG_MEDICAL =
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M3.5 0A1.5 1.5 0 0 0 2 1.5v13A1.5 1.5 0 0 0 3.5 16h9a1.5 1.5 0 0 0 1.5-1.5v-13A1.5 1.5 0 0 0 12.5 0h-9Zm0 1.5h9v13h-9v-13ZM7 4.75A.75.75 0 0 1 7.75 4h.5a.75.75 0 0 1 0 1.5h-.5A.75.75 0 0 1 7 4.75ZM5.75 7a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5h-4.5ZM5 10.25a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1-.75-.75Z"/></svg>';
+  const SVG_CLOCK =
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm7-3.25v2.992l2.028.812a.75.75 0 0 1-.557 1.392l-2.5-1A.751.751 0 0 1 7 8.25v-3.5a.75.75 0 0 1 1.5 0Z"/></svg>';
 
   /**
    * Escape HTML to prevent XSS from data values.
@@ -81,11 +84,11 @@
   function escHtml(str) {
     if (typeof str !== 'string') return '';
     return str
-      .replace(/&/g,  '&amp;')
-      .replace(/</g,  '&lt;')
-      .replace(/>/g,  '&gt;')
-      .replace(/"/g,  '&quot;')
-      .replace(/'/g,  '&#39;');
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   /**
@@ -117,7 +120,11 @@
    * @returns {string}
    */
   function fmtRelative(dateInput) {
-    if (typeof window !== 'undefined' && window.RetinaXUtils && window.RetinaXUtils.formatRelativeTime) {
+    if (
+      typeof window !== 'undefined' &&
+      window.RetinaXUtils &&
+      window.RetinaXUtils.formatRelativeTime
+    ) {
       return window.RetinaXUtils.formatRelativeTime(dateInput);
     }
     // Minimal fallback
@@ -125,8 +132,8 @@
       const d = new Date(dateInput);
       if (isNaN(d.getTime())) return 'recently';
       const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000);
-      if (diffDays < 0)  return `in ${Math.abs(diffDays)} days`;
-      if (diffDays < 1)  return 'today';
+      if (diffDays < 0) return `in ${Math.abs(diffDays)} days`;
+      if (diffDays < 1) return 'today';
       if (diffDays === 1) return 'yesterday';
       return `${diffDays} days ago`;
     } catch (_) {
@@ -143,7 +150,11 @@
     if (!raw) return [];
     if (Array.isArray(raw)) return raw;
     if (typeof raw === 'string') {
-      try { return JSON.parse(raw); } catch (_) { return []; }
+      try {
+        return JSON.parse(raw);
+      } catch (_) {
+        return [];
+      }
     }
     return [];
   }
@@ -172,16 +183,18 @@
    * @returns {string} HTML string
    */
   function buildHTML(cfg) {
-    const patientId    = escHtml(cfg.patientId || 'N/A');
-    const patientName  = escHtml(cfg.patientName || 'Unknown Patient');
-    const age          = cfg.age || '—';
-    const gender       = escHtml(cfg.gender || 'N/A');
-    const lastVisit    = fmtDate(cfg.lastVisit, 'MMM DD, YYYY');
-    const nextAppt     = cfg.nextAppointment ? fmtDate(cfg.nextAppointment, 'MMM DD, YYYY') : 'None scheduled';
+    const patientId = escHtml(cfg.patientId || 'N/A');
+    const patientName = escHtml(cfg.patientName || 'Unknown Patient');
+    const age = cfg.age || '—';
+    const gender = escHtml(cfg.gender || 'N/A');
+    const lastVisit = fmtDate(cfg.lastVisit, 'MMM DD, YYYY');
+    const nextAppt = cfg.nextAppointment
+      ? fmtDate(cfg.nextAppointment, 'MMM DD, YYYY')
+      : 'None scheduled';
     const nextApptTime = cfg.nextAppointment ? fmtRelative(cfg.nextAppointment) : '';
-    const recentExams  = cfg.recentExams || 0;
+    const recentExams = cfg.recentExams || 0;
     const careProvider = escHtml(cfg.careProvider || 'Not assigned');
-    const accessLevel  = escHtml(cfg.accessLevel || 'Read');
+    const accessLevel = escHtml(cfg.accessLevel || 'Read');
     const showSensitive = cfg.showSensitive !== false;
 
     /* --- Build patient avatar --- */
@@ -191,18 +204,26 @@
 
     /* --- Build conditions list --- */
     const conditions = parseArray(cfg.conditions);
-    const conditionsHTML = conditions.length > 0
-      ? conditions.map(cond => {
-          const severity = CONDITION_SEVERITY[cond] || { cls: 'patient-card__condition--mild', icon: '📋' };
-          return `<span class="patient-card__condition ${severity.cls}" aria-label="${escHtml(cond)}">${severity.icon} ${escHtml(cond)}</span>`;
-        }).join('')
-      : '<span class="patient-card__no-data">No conditions recorded</span>';
+    const conditionsHTML =
+      conditions.length > 0
+        ? conditions
+            .map((cond) => {
+              const severity = CONDITION_SEVERITY[cond] || {
+                cls: 'patient-card__condition--mild',
+                icon: '📋',
+              };
+              return `<span class="patient-card__condition ${severity.cls}" aria-label="${escHtml(cond)}">${severity.icon} ${escHtml(cond)}</span>`;
+            })
+            .join('')
+        : '<span class="patient-card__no-data">No conditions recorded</span>';
 
     /* --- Build prescriptions --- */
     const prescriptions = parseArray(cfg.prescriptions);
-    const rxHTML = prescriptions.length > 0 && showSensitive
-      ? prescriptions.map(rx => {
-          return `
+    const rxHTML =
+      prescriptions.length > 0 && showSensitive
+        ? prescriptions
+            .map((rx) => {
+              return `
             <div class="patient-card__rx">
               <span class="patient-card__rx-type">${escHtml(rx.type || 'OD')}</span>
               <span class="patient-card__rx-detail">SPH: ${escHtml(rx.sphere || '0.00')}</span>
@@ -210,8 +231,9 @@
               <span class="patient-card__rx-detail">AXIS: ${escHtml(rx.axis || '—')}</span>
             </div>
           `;
-        }).join('')
-      : '<div class="patient-card__no-data">No prescriptions recorded</div>';
+            })
+            .join('')
+        : '<div class="patient-card__no-data">No prescriptions recorded</div>';
 
     return `
       <!-- Header with patient identity -->
@@ -279,14 +301,18 @@
         </div>
 
         <!-- Prescriptions (sensitive data) -->
-        ${showSensitive ? `
+        ${
+          showSensitive
+            ? `
           <div class="patient-card__section">
             <div class="patient-card__section-label">Current Prescription</div>
             <div class="patient-card__prescriptions">
               ${rxHTML}
             </div>
           </div>
-        ` : ''}
+        `
+            : ''
+        }
       </div>
 
       <!-- Footer actions -->
@@ -368,8 +394,8 @@
     }
 
     this._mount = mountEl;
-    this._cfg   = null;
-    this._card  = null;
+    this._cfg = null;
+    this._card = null;
 
     /* Resolve initial config from options or data-* attributes */
     const cfg = this._resolveConfig(opts || {});
@@ -396,24 +422,28 @@
       const kebab = attr.replace(/([A-Z])/g, '-$1').toLowerCase();
       const raw = el.dataset[attr] || el.dataset[kebab.replace(/^-/, '')];
       if (raw !== undefined && raw !== '') return raw;
-      if (opts[attr] !== undefined)        return opts[attr];
+      if (opts[attr] !== undefined) return opts[attr];
       return fallback;
     };
 
     return {
-      patientId:        d('patientId',       'N/A'),
-      patientName:      d('patientName',     'Unknown Patient'),
-      age:              parseInt(d('age',    0), 10) || 0,
-      gender:           d('gender',          'N/A'),
-      lastVisit:        d('lastVisit',       new Date().toISOString()),
-      nextAppointment:  d('nextAppointment', ''),
-      conditions:       parseArray(opts.conditions !== undefined ? opts.conditions : el.dataset.conditions),
-      prescriptions:    parseArray(opts.prescriptions !== undefined ? opts.prescriptions : el.dataset.prescriptions),
-      recentExams:      parseInt(d('recentExams', 0), 10) || 0,
-      careProvider:     d('careProvider',    'Not assigned'),
-      accessLevel:      d('accessLevel',     'Read'),
-      avatarUrl:        d('avatarUrl',       ''),
-      showSensitive:    d('showSensitive',   'true') !== 'false',
+      patientId: d('patientId', 'N/A'),
+      patientName: d('patientName', 'Unknown Patient'),
+      age: parseInt(d('age', 0), 10) || 0,
+      gender: d('gender', 'N/A'),
+      lastVisit: d('lastVisit', new Date().toISOString()),
+      nextAppointment: d('nextAppointment', ''),
+      conditions: parseArray(
+        opts.conditions !== undefined ? opts.conditions : el.dataset.conditions
+      ),
+      prescriptions: parseArray(
+        opts.prescriptions !== undefined ? opts.prescriptions : el.dataset.prescriptions
+      ),
+      recentExams: parseInt(d('recentExams', 0), 10) || 0,
+      careProvider: d('careProvider', 'Not assigned'),
+      accessLevel: d('accessLevel', 'Read'),
+      avatarUrl: d('avatarUrl', ''),
+      showSensitive: d('showSensitive', 'true') !== 'false',
     };
   };
 
@@ -480,8 +510,8 @@
     if (this._card && this._card.parentNode) {
       this._card.parentNode.removeChild(this._card);
     }
-    this._card  = null;
-    this._cfg   = null;
+    this._card = null;
+    this._cfg = null;
     this._mount = null;
   };
 
@@ -512,4 +542,4 @@
   }
 
   return PatientCard;
-}));
+});

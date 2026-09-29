@@ -55,7 +55,7 @@
   } else {
     root.RepoAvatar = factory();
   }
-}(typeof self !== 'undefined' ? self : this, function () {
+})(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
   /* ------------------------------------------------------------------
@@ -64,23 +64,26 @@
 
   /** Predefined badge configurations */
   const BADGE_PRESETS = {
-    MIT:     { label: 'MIT License',   cls: 'repo-avatar__badge--green', icon: '⚖️' },
-    Apache:  { label: 'Apache 2.0',    cls: 'repo-avatar__badge--green', icon: '⚖️' },
-    HIPAA:   { label: 'HIPAA Ready',   cls: 'repo-avatar__badge--teal',  icon: '🏥' },
-    GDPR:    { label: 'GDPR Art.25',   cls: 'repo-avatar__badge--teal',  icon: '🇪🇺' },
-    CI:      { label: 'CI Passing',    cls: 'repo-avatar__badge--green', icon: '✅' },
-    Soroban: { label: 'Soroban v23',   cls: 'repo-avatar__badge--teal',  icon: '⭐' },
-    FHIR:    { label: 'FHIR v4',       cls: 'repo-avatar__badge--amber', icon: '📋' },
+    MIT: { label: 'MIT License', cls: 'repo-avatar__badge--green', icon: '⚖️' },
+    Apache: { label: 'Apache 2.0', cls: 'repo-avatar__badge--green', icon: '⚖️' },
+    HIPAA: { label: 'HIPAA Ready', cls: 'repo-avatar__badge--teal', icon: '🏥' },
+    GDPR: { label: 'GDPR Art.25', cls: 'repo-avatar__badge--teal', icon: '🇪🇺' },
+    CI: { label: 'CI Passing', cls: 'repo-avatar__badge--green', icon: '✅' },
+    Soroban: { label: 'Soroban v23', cls: 'repo-avatar__badge--teal', icon: '⭐' },
+    FHIR: { label: 'FHIR v4', cls: 'repo-avatar__badge--amber', icon: '📋' },
   };
 
   /** GitHub Octicon-style SVG star */
-  const SVG_STAR = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>';
+  const SVG_STAR =
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"/></svg>';
 
   /** GitHub Octicon-style SVG fork */
-  const SVG_FORK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/></svg>';
+  const SVG_FORK =
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z"/></svg>';
 
   /** GitHub Octicon-style SVG commit */
-  const SVG_COMMIT = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z"/></svg>';
+  const SVG_COMMIT =
+    '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z"/></svg>';
 
   /**
    * Escape HTML to prevent XSS from data values.
@@ -88,13 +91,16 @@
    * @returns {string}
    */
   function escHtml(str) {
+    if (typeof window !== 'undefined' && window.RetinaXUtils && window.RetinaXUtils.escapeHtml) {
+      return window.RetinaXUtils.escapeHtml(str);
+    }
     if (typeof str !== 'string') return '';
     return str
-      .replace(/&/g,  '&amp;')
-      .replace(/</g,  '&lt;')
-      .replace(/>/g,  '&gt;')
-      .replace(/"/g,  '&quot;')
-      .replace(/'/g,  '&#39;');
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   /**
@@ -103,10 +109,17 @@
    * @returns {string}
    */
   function fmtNum(n) {
+    if (
+      typeof window !== 'undefined' &&
+      window.RetinaXUtils &&
+      window.RetinaXUtils.formatCompactNumber
+    ) {
+      return window.RetinaXUtils.formatCompactNumber(n);
+    }
     const num = parseInt(n, 10);
     if (isNaN(num)) return '—';
     if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
-    if (num >= 1000)    return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
     return String(num);
   }
 
@@ -117,7 +130,11 @@
    * @returns {string}
    */
   function fmtCommitDate(dateInput) {
-    if (typeof window !== 'undefined' && window.RetinaXUtils && window.RetinaXUtils.formatRelativeTime) {
+    if (
+      typeof window !== 'undefined' &&
+      window.RetinaXUtils &&
+      window.RetinaXUtils.formatRelativeTime
+    ) {
       return window.RetinaXUtils.formatRelativeTime(dateInput);
     }
     // Minimal fallback
@@ -125,9 +142,9 @@
       const d = new Date(dateInput);
       if (isNaN(d.getTime())) return 'recently';
       const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000);
-      if (diffDays < 1)  return 'today';
+      if (diffDays < 1) return 'today';
       if (diffDays === 1) return '1 day ago';
-      if (diffDays < 30)  return `${diffDays} days ago`;
+      if (diffDays < 30) return `${diffDays} days ago`;
       const diffMo = Math.floor(diffDays / 30);
       return diffMo === 1 ? '1 month ago' : `${diffMo} months ago`;
     } catch (_) {
@@ -143,13 +160,17 @@
   function parseContributors(raw) {
     if (!raw) return [];
     if (typeof raw === 'string') {
-      try { raw = JSON.parse(raw); } catch (_) { return []; }
+      try {
+        raw = JSON.parse(raw);
+      } catch (_) {
+        return [];
+      }
     }
     if (!Array.isArray(raw)) return [];
-    return raw.map(c => ({
-      login:     c.login     || 'unknown',
-      initials:  (c.initials || c.login || '??').substring(0, 2).toUpperCase(),
-      color:     c.color     || 'navy',
+    return raw.map((c) => ({
+      login: c.login || 'unknown',
+      initials: (c.initials || c.login || '??').substring(0, 2).toUpperCase(),
+      color: c.color || 'navy',
       avatarUrl: c.avatarUrl || '',
     }));
   }
@@ -164,17 +185,17 @@
    * @returns {string} HTML string
    */
   function buildHTML(cfg) {
-    const orgDisplay  = escHtml(cfg.org);
+    const orgDisplay = escHtml(cfg.org);
     const repoDisplay = escHtml(cfg.repo);
     const langDisplay = escHtml(cfg.lang || 'Rust');
     const networkText = escHtml(cfg.network || 'Stellar Testnet');
-    const ghUrl       = escHtml(cfg.githubUrl || `https://github.com/${cfg.org}/${cfg.repo}`);
-    const starsStr    = fmtNum(cfg.stars  || 0);
-    const forksStr    = fmtNum(cfg.forks  || 0);
-    const commitMsg   = escHtml(cfg.lastCommitMsg  || 'Initial commit');
-    const commitSha   = escHtml((cfg.lastCommitSha || 'abc1234').substring(0, 7));
-    const commitDate  = fmtCommitDate(cfg.lastCommitDate || new Date());
-    const maxContrib  = typeof cfg.maxContributors === 'number' ? cfg.maxContributors : 5;
+    const ghUrl = escHtml(cfg.githubUrl || `https://github.com/${cfg.org}/${cfg.repo}`);
+    const starsStr = fmtNum(cfg.stars || 0);
+    const forksStr = fmtNum(cfg.forks || 0);
+    const commitMsg = escHtml(cfg.lastCommitMsg || 'Initial commit');
+    const commitSha = escHtml((cfg.lastCommitSha || 'abc1234').substring(0, 7));
+    const commitDate = fmtCommitDate(cfg.lastCommitDate || new Date());
+    const maxContrib = typeof cfg.maxContributors === 'number' ? cfg.maxContributors : 5;
     const contributors = (cfg.contributors || []).slice(0, maxContrib + 1);
     const visibleContribs = contributors.slice(0, maxContrib);
     const overflow = Math.max(0, (cfg.contributors || []).length - maxContrib);
@@ -185,27 +206,31 @@
       : escHtml((cfg.org || 'R').charAt(0).toUpperCase());
 
     /* --- Build badge HTML --- */
-    const badgeKeys = Array.isArray(cfg.badges) && cfg.badges.length
-      ? cfg.badges
-      : ['MIT', 'HIPAA', 'CI'];
+    const badgeKeys =
+      Array.isArray(cfg.badges) && cfg.badges.length ? cfg.badges : ['MIT', 'HIPAA', 'CI'];
 
-    const badgesHTML = badgeKeys.map(key => {
-      const preset = BADGE_PRESETS[key];
-      if (!preset) return '';
-      return `<span class="repo-avatar__badge ${preset.cls}" aria-label="${escHtml(preset.label)}">${preset.icon} ${escHtml(preset.label)}</span>`;
-    }).join('');
+    const badgesHTML = badgeKeys
+      .map((key) => {
+        const preset = BADGE_PRESETS[key];
+        if (!preset) return '';
+        return `<span class="repo-avatar__badge ${preset.cls}" aria-label="${escHtml(preset.label)}">${preset.icon} ${escHtml(preset.label)}</span>`;
+      })
+      .join('');
 
     /* --- Build contributor stack --- */
-    const contribHTML = visibleContribs.map(c => {
-      const inner = c.avatarUrl
-        ? `<img src="${escHtml(c.avatarUrl)}" alt="${escHtml(c.login)}" loading="lazy">`
-        : escHtml(c.initials);
-      return `<div class="repo-avatar__avatar" data-color="${escHtml(c.color)}" data-tooltip="@${escHtml(c.login)}" role="img" aria-label="Contributor @${escHtml(c.login)}">${inner}</div>`;
-    }).join('');
+    const contribHTML = visibleContribs
+      .map((c) => {
+        const inner = c.avatarUrl
+          ? `<img src="${escHtml(c.avatarUrl)}" alt="${escHtml(c.login)}" loading="lazy">`
+          : escHtml(c.initials);
+        return `<div class="repo-avatar__avatar" data-color="${escHtml(c.color)}" data-tooltip="@${escHtml(c.login)}" role="img" aria-label="Contributor @${escHtml(c.login)}">${inner}</div>`;
+      })
+      .join('');
 
-    const overflowHTML = overflow > 0
-      ? `<div class="repo-avatar__avatar repo-avatar__avatar-overflow" data-color="navy" aria-label="${overflow} more contributors">+${overflow}</div>`
-      : '';
+    const overflowHTML =
+      overflow > 0
+        ? `<div class="repo-avatar__avatar repo-avatar__avatar-overflow" data-color="navy" aria-label="${overflow} more contributors">+${overflow}</div>`
+        : '';
 
     return `
       <!-- Dark header banner -->
@@ -367,8 +392,8 @@
     }
 
     this._mount = mountEl;
-    this._cfg   = null;
-    this._card  = null;
+    this._cfg = null;
+    this._card = null;
 
     /* Resolve initial config from options or data-* attributes */
     const cfg = this._resolveConfig(opts || {});
@@ -394,38 +419,34 @@
     const d = (attr, fallback) => {
       const raw = el.dataset[attr];
       if (raw !== undefined && raw !== '') return raw;
-      if (opts[attr] !== undefined)        return opts[attr];
+      if (opts[attr] !== undefined) return opts[attr];
       /* camelCase fallbacks for common attrs */
       const camel = attr.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-      if (opts[camel] !== undefined)       return opts[camel];
+      if (opts[camel] !== undefined) return opts[camel];
       return fallback;
     };
 
     return {
-      org:            d('org',            'RetinaX-Org'),
-      repo:           d('repo',           'RetinaX'),
-      stars:          parseInt(d('stars',  0), 10),
-      forks:          parseInt(d('forks',  0), 10),
-      lang:           d('lang',           'Rust'),
-      license:        d('license',        'MIT'),
-      lastCommitMsg:  d('lastCommitMsg',  d('last-commit-msg', 'chore: update dependencies')),
-      lastCommitSha:  d('lastCommitSha',  d('last-commit-sha', 'abc1234')),
+      org: d('org', 'RetinaX-Org'),
+      repo: d('repo', 'RetinaX'),
+      stars: parseInt(d('stars', 0), 10),
+      forks: parseInt(d('forks', 0), 10),
+      lang: d('lang', 'Rust'),
+      license: d('license', 'MIT'),
+      lastCommitMsg: d('lastCommitMsg', d('last-commit-msg', 'chore: update dependencies')),
+      lastCommitSha: d('lastCommitSha', d('last-commit-sha', 'abc1234')),
       lastCommitDate: d('lastCommitDate', d('last-commit-date', new Date().toISOString())),
-      githubUrl:      d('githubUrl',      d('github-url', '')),
-      network:        d('network',        'Stellar Testnet'),
-      orgLogoUrl:     d('orgLogoUrl',     d('org-logo-url', '')),
+      githubUrl: d('githubUrl', d('github-url', '')),
+      network: d('network', 'Stellar Testnet'),
+      orgLogoUrl: d('orgLogoUrl', d('org-logo-url', '')),
       maxContributors: parseInt(d('maxContributors', d('max-contributors', 5)), 10),
-      contributors:   parseContributors(
-        opts.contributors !== undefined
-          ? opts.contributors
-          : el.dataset.contributors || ''
+      contributors: parseContributors(
+        opts.contributors !== undefined ? opts.contributors : el.dataset.contributors || ''
       ),
       badges: (() => {
-        const raw = opts.badges !== undefined
-          ? opts.badges
-          : el.dataset.badges;
+        const raw = opts.badges !== undefined ? opts.badges : el.dataset.badges;
         if (Array.isArray(raw)) return raw;
-        if (typeof raw === 'string' && raw) return raw.split(',').map(s => s.trim());
+        if (typeof raw === 'string' && raw) return raw.split(',').map((s) => s.trim());
         return ['MIT', 'HIPAA', 'CI'];
       })(),
     };
@@ -494,8 +515,8 @@
     if (this._card && this._card.parentNode) {
       this._card.parentNode.removeChild(this._card);
     }
-    this._card  = null;
-    this._cfg   = null;
+    this._card = null;
+    this._cfg = null;
     this._mount = null;
   };
 
@@ -526,4 +547,4 @@
   }
 
   return RepoAvatar;
-}));
+});

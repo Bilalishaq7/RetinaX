@@ -426,4 +426,3 @@ fn test_rotate_key_before_interval_fails() {
     let result = client.try_rotate_key(&admin, &key_id);
     assert_eq!(result, Err(Ok(ContractError::RotationNotDue)));
 }
-
