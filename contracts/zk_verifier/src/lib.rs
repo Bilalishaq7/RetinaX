@@ -1,3 +1,4 @@
+#![no_std]
 #![allow(dead_code, clippy::manual_inspect, clippy::arithmetic_side_effects)]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! # Zero-Knowledge Verifier Smart Contract Module
@@ -813,4 +814,3 @@ impl ZkVerifierContract {
         AuditTrail::verify_chain(&env, user, resource_id)
     }
 }
-

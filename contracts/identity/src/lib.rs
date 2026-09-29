@@ -369,7 +369,7 @@ impl IdentityContract {
 
         // Check current guardians count
         let guardians = recovery::get_guardians(&env, &caller);
-        if threshold > guardians.len() as u32 {
+        if threshold > guardians.len() {
             return Err(RecoveryError::InvalidThreshold);
         }
 

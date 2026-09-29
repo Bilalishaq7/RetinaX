@@ -5,6 +5,7 @@
 
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, Vec};
 use zk_verifier::verifier::{G1Point, G2Point, Proof};
+use zk_verifier::vk::VerificationKey;
 use zk_verifier::{AccessRequest, ContractError, ZkVerifierContract, ZkVerifierContractClient};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -16,6 +17,32 @@ fn setup(env: &Env) -> (ZkVerifierContractClient<'static>, Address, Address) {
     let admin = Address::generate(env);
     let user = Address::generate(env);
     client.initialize(&admin);
+
+    // Register a placeholder VK (the mock verifier ignores its contents) so
+    // verify_access reaches the proof-evaluation stage instead of failing
+    // with InvalidConfig.
+    let f = [1u8; 32];
+    let g1 = G1Point {
+        x: BytesN::from_array(env, &f),
+        y: BytesN::from_array(env, &f),
+    };
+    let g2 = G2Point {
+        x: (BytesN::from_array(env, &f), BytesN::from_array(env, &f)),
+        y: (BytesN::from_array(env, &f), BytesN::from_array(env, &f)),
+    };
+    let mut ic = Vec::new(env);
+    ic.push_back(g1.clone());
+    client.set_verification_key(
+        &admin,
+        &VerificationKey {
+            alpha_g1: g1,
+            beta_g2: g2.clone(),
+            gamma_g2: g2.clone(),
+            delta_g2: g2,
+            ic,
+        },
+    );
+
     (client, admin, user)
 }
 

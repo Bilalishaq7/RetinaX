@@ -33,12 +33,12 @@ fn nonzero32(env: &Env) -> BytesN<32> {
 }
 
 /// Build a G1 point with the given x and y bytes.
-fn g1(env: &Env, x: BytesN<32>, y: BytesN<32>) -> G1Point {
+fn g1(_env: &Env, x: BytesN<32>, y: BytesN<32>) -> G1Point {
     G1Point { x, y }
 }
 
 /// Build a G2 point where every limb equals `limb`.
-fn g2_uniform(env: &Env, limb: BytesN<32>) -> G2Point {
+fn g2_uniform(_env: &Env, limb: BytesN<32>) -> G2Point {
     G2Point {
         x: (limb.clone(), limb.clone()),
         y: (limb.clone(), limb.clone()),
@@ -316,7 +316,6 @@ fn test_zero_cy_returns_malformed_g1_point_c() {
 #[test]
 fn test_empty_public_inputs_rejected() {
     let env = Env::default();
-    let nz = nonzero32(&env);
     let (proof, _) = valid_proof(&env);
     let empty: Vec<BytesN<32>> = Vec::new(&env);
     assert_eq!(

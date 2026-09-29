@@ -36,7 +36,6 @@
 //! | `verify_node_integrity`    | O(depth)   | 0              |
 //! | `prune_summarised`         | O(n) amort | O(n)           |
 extern crate alloc;
-use alloc::string::ToString;
 
 use soroban_sdk::{contracttype, symbol_short, Address, Bytes, BytesN, Env, String, Symbol, Vec};
 
@@ -536,7 +535,10 @@ pub fn verify_node_integrity(env: &Env, record_id: u64, max_depth: u32) -> Verif
 
         if in_edges.is_empty() {
             // Genesis node — recompute the zero-parent commitment.
-            let tag_std = node.record_type_tag.to_string();
+            let tag_len = node.record_type_tag.len() as usize;
+            let mut tag_buf = alloc::vec![0u8; tag_len];
+            node.record_type_tag.copy_into_slice(&mut tag_buf);
+            let tag_std = alloc::string::String::from_utf8(tag_buf).unwrap_or_default();
             let expected = genesis_commitment(
                 env,
                 node.record_id,

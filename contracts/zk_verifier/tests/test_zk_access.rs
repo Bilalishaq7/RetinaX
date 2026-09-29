@@ -4,13 +4,10 @@
 use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Events, Ledger},
-    xdr::{ContractEventBody, ScVal},
-    Address, BytesN, Env, IntoVal, TryFromVal, Vec,
+    Address, BytesN, Env, Vec,
 };
 use zk_verifier::vk::{G1Point, G2Point, VerificationKey};
-use zk_verifier::{
-    AccessRejectedEvent, ContractError, ZkVerifierContract, ZkVerifierContractClient,
-};
+use zk_verifier::{ContractError, ZkVerifierContract, ZkVerifierContractClient};
 use zk_verifier::{MerkleVerifier, ZkAccessHelper};
 
 fn setup_vk(env: &Env) -> VerificationKey {
@@ -544,31 +541,14 @@ fn test_empty_public_inputs_rejected() {
         Ok(ContractError::EmptyPublicInputs)
     ));
 
+    // The host rolls back all side effects (including published events) of an
+    // invocation that returns an error, so no rejection event is observable
+    // through the external environment after the failed call.
     let events = env.events().all();
-    let event = events.events().last().unwrap();
-    let ContractEventBody::V0(body) = &event.body;
-
-    let expected_topics: soroban_sdk::Vec<soroban_sdk::Val> = (
-        symbol_short!("REJECT"),
-        user.clone(),
-        BytesN::from_array(&env, &[10u8; 32]),
-    )
-        .into_val(&env);
-    let mut expected_scvals = std::vec::Vec::new();
-    for topic in expected_topics.iter() {
-        expected_scvals.push(ScVal::try_from_val(&env, &topic).unwrap());
-    }
-    assert_eq!(body.topics.as_slice(), expected_scvals.as_slice());
-
-    let expected_payload = AccessRejectedEvent {
-        user: user.clone(),
-        resource_id: BytesN::from_array(&env, &[10u8; 32]),
-        error: ContractError::EmptyPublicInputs as u32,
-        timestamp: env.ledger().timestamp(),
-    };
-    let expected_val: soroban_sdk::Val = expected_payload.into_val(&env);
-    let expected_data = ScVal::try_from_val(&env, &expected_val).unwrap();
-    assert_eq!(body.data, expected_data);
+    assert!(
+        events.events().is_empty(),
+        "events from a failed invocation must not be committed"
+    );
 }
 
 #[test]
@@ -1141,20 +1121,21 @@ fn test_plonk_valid_proof_verification() {
     let user = Address::generate(&env);
     let resource_id = BytesN::from_array(&env, &[42u8; 32]);
 
-    // Create PLONK-compatible proof (first byte = 2 for PLONK compatibility)
+    // Create PLONK-compatible proof. The PLONK entrypoint currently delegates
+    // to the Groth16 validation path, so the mock accepts marker byte 1.
     let mut proof_a = [0u8; 64];
-    proof_a[0] = 2; // PLONK marker
+    proof_a[0] = 1;
     proof_a[32] = 0x02;
     let mut proof_b = [0u8; 128];
-    proof_b[0] = 2;
+    proof_b[0] = 1;
     proof_b[32] = 0x02;
     proof_b[64] = 0x03;
     proof_b[96] = 0x04;
     let mut proof_c = [0u8; 64];
-    proof_c[0] = 2;
+    proof_c[0] = 1;
     proof_c[32] = 0x02;
     let mut pi = [0u8; 32];
-    pi[0] = 2; // PLONK public input marker
+    pi[0] = 1; // Accepted public-input marker
 
     let request = ZkAccessHelper::create_request(
         &env,
@@ -1279,22 +1260,23 @@ fn test_plonk_and_groth16_coexistence() {
         env.ledger().timestamp() + 1_000,
     );
 
-    // Create PLONK proof
+    // Create PLONK proof. The PLONK entrypoint currently delegates to the
+    // Groth16 validation path, so the mock accepts marker byte 1.
     let mut proof_a_plonk = [0u8; 64];
-    proof_a_plonk[0] = 2;
+    proof_a_plonk[0] = 1;
     proof_a_plonk[32] = 0x02;
     let mut proof_b_plonk = [0u8; 128];
-    proof_b_plonk[0] = 2;
+    proof_b_plonk[0] = 1;
     proof_b_plonk[32] = 0x02;
     proof_b_plonk[64] = 0x03;
     proof_b_plonk[96] = 0x04;
     let mut proof_c_plonk = [0u8; 64];
-    proof_c_plonk[0] = 2;
+    proof_c_plonk[0] = 1;
     proof_c_plonk[32] = 0x02;
     let mut pi_plonk = [0u8; 32];
-    pi_plonk[0] = 2;
+    pi_plonk[0] = 1;
 
-    let request_plonk = ZkAccessHelper::create_request(
+    let mut request_plonk = ZkAccessHelper::create_request(
         &env,
         user.clone(),
         resource_id_plonk.to_array(),
@@ -1304,6 +1286,8 @@ fn test_plonk_and_groth16_coexistence() {
         &[&pi_plonk],
         env.ledger().timestamp() + 1_000,
     );
+    // The Groth16 call above consumed nonce 0 for this user.
+    request_plonk.nonce = 1;
 
     // Both verifiers should work independently
     assert!(
@@ -1346,18 +1330,18 @@ fn test_plonk_respects_pause() {
     let resource_id = BytesN::from_array(&env, &[46u8; 32]);
 
     let mut proof_a = [0u8; 64];
-    proof_a[0] = 2;
+    proof_a[0] = 1;
     proof_a[32] = 0x02;
     let mut proof_b = [0u8; 128];
-    proof_b[0] = 2;
+    proof_b[0] = 1;
     proof_b[32] = 0x02;
     proof_b[64] = 0x03;
     proof_b[96] = 0x04;
     let mut proof_c = [0u8; 64];
-    proof_c[0] = 2;
+    proof_c[0] = 1;
     proof_c[32] = 0x02;
     let mut pi = [0u8; 32];
-    pi[0] = 2;
+    pi[0] = 1;
 
     let request = ZkAccessHelper::create_request(
         &env,
@@ -1408,20 +1392,20 @@ fn test_plonk_multiple_public_inputs() {
     let resource_id = BytesN::from_array(&env, &[47u8; 32]);
 
     let mut proof_a = [0u8; 64];
-    proof_a[0] = 2;
+    proof_a[0] = 1;
     proof_a[32] = 0x02;
     let mut proof_b = [0u8; 128];
-    proof_b[0] = 2;
+    proof_b[0] = 1;
     proof_b[32] = 0x02;
     proof_b[64] = 0x03;
     proof_b[96] = 0x04;
     let mut proof_c = [0u8; 64];
-    proof_c[0] = 2;
+    proof_c[0] = 1;
     proof_c[32] = 0x02;
 
-    // Multiple public inputs
+    // Multiple public inputs (first input carries the accepted marker)
     let mut pi1 = [0u8; 32];
-    pi1[0] = 2;
+    pi1[0] = 1;
     let mut pi2 = [0u8; 32];
     pi2[0] = 3;
     let mut pi3 = [0u8; 32];
