@@ -1414,3 +1414,136 @@ fn publish_acl_group_membership(
     };
     env.events().publish(topics, data);
 }
+
+// ── Prescription State Events ─────────────────────────────────────────────
+
+/// Event published when a prescription is created.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PrescriptionCreatedEvent {
+    pub prescription_id: u64,
+    pub patient: Address,
+    pub provider: Address,
+    pub issued_at: u64,
+    pub expires_at: u64,
+    pub exam_record_id: u64,
+    pub timestamp: u64,
+}
+
+/// Event published when a prescription undergoes a state transition.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PrescriptionStateTransitionEvent {
+    pub prescription_id: u64,
+    pub from_state: teye_common::state_machine::LifecycleState,
+    pub to_state: teye_common::state_machine::LifecycleState,
+    pub actor: Address,
+    pub timestamp: u64,
+}
+
+/// Event published when a prescription is verified by an authorized entity.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PrescriptionVerifiedEvent {
+    pub prescription_id: u64,
+    pub patient: Address,
+    pub verifier: Address,
+    pub timestamp: u64,
+}
+
+/// Event published when a prescription is updated via OCC.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PrescriptionUpdatedEvent {
+    pub prescription_id: u64,
+    pub provider: Address,
+    pub version: u64,
+    pub timestamp: u64,
+}
+
+/// Publishes an event when a prescription is created.
+pub fn publish_prescription_created(
+    env: &Env,
+    prescription_id: u64,
+    patient: Address,
+    provider: Address,
+    issued_at: u64,
+    expires_at: u64,
+    exam_record_id: Option<u64>,
+) {
+    let topics = (
+        symbol_short!("RX_CRT"),
+        prescription_id,
+        patient.clone(),
+        provider.clone(),
+    );
+    let data = PrescriptionCreatedEvent {
+        prescription_id,
+        patient,
+        provider,
+        issued_at,
+        expires_at,
+        exam_record_id: exam_record_id.unwrap_or(0),
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when a prescription state transition occurs.
+pub fn publish_prescription_state_transition(
+    env: &Env,
+    prescription_id: u64,
+    from_state: teye_common::state_machine::LifecycleState,
+    to_state: teye_common::state_machine::LifecycleState,
+    actor: Address,
+) {
+    let topics = (symbol_short!("RX_TRN"), prescription_id, actor.clone());
+    let data = PrescriptionStateTransitionEvent {
+        prescription_id,
+        from_state,
+        to_state,
+        actor,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when a prescription is verified.
+pub fn publish_prescription_verified(
+    env: &Env,
+    prescription_id: u64,
+    patient: Address,
+    verifier: Address,
+) {
+    let topics = (
+        symbol_short!("RX_VRF"),
+        prescription_id,
+        patient.clone(),
+        verifier.clone(),
+    );
+    let data = PrescriptionVerifiedEvent {
+        prescription_id,
+        patient,
+        verifier,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when a prescription is updated.
+pub fn publish_prescription_updated(
+    env: &Env,
+    prescription_id: u64,
+    provider: Address,
+    version: u64,
+) {
+    let topics = (symbol_short!("RX_UPD"), prescription_id, provider.clone());
+    let data = PrescriptionUpdatedEvent {
+        prescription_id,
+        provider,
+        version,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+

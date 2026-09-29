@@ -111,7 +111,7 @@ pub fn save_prescription(env: &Env, prescription: &Prescription, exam_record_id:
         );
     }
 
-    let _ = state_machine::apply_transition(
+    if let Err(_e) = state_machine::apply_transition(
         env,
         0,
         &EntityKind::Prescription,
@@ -125,6 +125,25 @@ pub fn save_prescription(env: &Env, prescription: &Prescription, exam_record_id:
             expires_at: prescription.expires_at,
             prerequisites_met: true,
         },
+    ) {
+        return;
+    }
+
+    crate::events::publish_prescription_created(
+        env,
+        prescription.id,
+        prescription.patient.clone(),
+        prescription.provider.clone(),
+        prescription.issued_at,
+        prescription.expires_at,
+        exam_record_id,
+    );
+    crate::events::publish_prescription_state_transition(
+        env,
+        prescription.id,
+        LifecycleState::Prescription(state_machine::PrescriptionState::Created),
+        LifecycleState::Prescription(state_machine::PrescriptionState::Created),
+        prescription.provider.clone(),
     );
 }
 
@@ -147,6 +166,7 @@ pub fn verify_prescription(env: &Env, id: u64, verifier: Address) -> bool {
         rx.verified = true;
         let key = (soroban_sdk::symbol_short!("RX"), id);
         env.storage().persistent().set(&key, &rx);
+        crate::events::publish_prescription_verified(env, id, rx.patient.clone(), verifier);
         return true;
     }
     false
@@ -178,7 +198,7 @@ pub fn versioned_save_prescription(
     );
 
     match &outcome {
-        UpdateOutcome::Applied(_) | UpdateOutcome::Merged(_) => {
+        UpdateOutcome::Applied(version) | UpdateOutcome::Merged(version) => {
             let key = (soroban_sdk::symbol_short!("RX"), prescription.id);
             env.storage().persistent().set(&key, prescription);
             concurrency::save_field_snapshot(env, prescription.id, changed_fields);
@@ -191,6 +211,12 @@ pub fn versioned_save_prescription(
                 RelationshipKind::ModifiedBy,
                 provider.clone(),
                 None,
+            );
+            crate::events::publish_prescription_updated(
+                env,
+                prescription.id,
+                provider.clone(),
+                version.logical_clock,
             );
         }
         UpdateOutcome::Conflicted(_) => {
@@ -212,5 +238,14 @@ pub fn transition_prescription_state(
     to_state: LifecycleState,
     ctx: TransitionContext,
 ) -> Result<TransitionRecord, state_machine::StateMachineError> {
-    state_machine::apply_transition(env, 0, &EntityKind::Prescription, id, to_state, ctx)
+    let actor = ctx.actor.clone();
+    let record = state_machine::apply_transition(env, 0, &EntityKind::Prescription, id, to_state, ctx)?;
+    crate::events::publish_prescription_state_transition(
+        env,
+        id,
+        record.from_state.clone(),
+        record.to_state.clone(),
+        actor,
+    );
+    Ok(record)
 }
