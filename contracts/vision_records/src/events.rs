@@ -6,6 +6,7 @@ use crate::circuit_breaker::PauseScope;
 use crate::emergency::EmergencyCondition;
 use crate::errors::{ErrorCategory, ErrorContext, ErrorSeverity};
 use crate::{AccessLevel, RecordType, Role, VerificationStatus};
+use soroban_sdk::{symbol_short, Address, Env, String, Symbol};
 use soroban_sdk::{symbol_short, Address, Env, String, Vec};
 
 /// Event published when the contract is initialized.
@@ -392,6 +393,29 @@ pub struct ProviderRegisteredEvent {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExaminationAddedEvent {
     pub record_id: u64,
+    pub provider: Address,
+    pub patient: Address,
+    pub timestamp: u64,
+}
+
+/// Event published when an eye examination is updated.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExaminationUpdatedEvent {
+    pub record_id: u64,
+    pub provider: Address,
+    pub outcome: Symbol,
+    pub timestamp: u64,
+}
+
+/// Event published when an examination undergoes a lifecycle state transition.
+#[soroban_sdk::contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExaminationStateTransitionedEvent {
+    pub record_id: u64,
+    pub actor: Address,
+    pub from_state: Symbol,
+    pub to_state: Symbol,
     pub timestamp: u64,
 }
 
@@ -458,12 +482,45 @@ pub fn publish_batch_access_granted(env: &Env, patient: Address, count: u32) {
     env.events().publish(topics, data);
 }
 
-/// Publishes an event when an examination is added.
-/// This event includes the record ID.
-pub fn publish_examination_added(env: &Env, record_id: u64) {
-    let topics = (symbol_short!("EXAM_ADD"), record_id);
+/// Publishes a detailed event when an examination is added.
+/// This event includes the record ID, provider, patient, and timestamp.
+pub fn publish_examination_added(env: &Env, record_id: u64, provider: Address, patient: Address) {
+    let topics = (symbol_short!("EXAM_ADD"), record_id, provider.clone());
     let data = ExaminationAddedEvent {
         record_id,
+        provider,
+        patient,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when an examination is updated.
+pub fn publish_examination_updated(env: &Env, record_id: u64, provider: Address, outcome: Symbol) {
+    let topics = (symbol_short!("EXAM_UPD"), record_id, provider.clone());
+    let data = ExaminationUpdatedEvent {
+        record_id,
+        provider,
+        outcome,
+        timestamp: env.ledger().timestamp(),
+    };
+    env.events().publish(topics, data);
+}
+
+/// Publishes an event when an examination undergoes a state transition.
+pub fn publish_examination_state_transitioned(
+    env: &Env,
+    record_id: u64,
+    actor: Address,
+    from_state: Symbol,
+    to_state: Symbol,
+) {
+    let topics = (symbol_short!("EXAM_TRN"), record_id, actor.clone());
+    let data = ExaminationStateTransitionedEvent {
+        record_id,
+        actor,
+        from_state,
+        to_state,
         timestamp: env.ledger().timestamp(),
     };
     env.events().publish(topics, data);

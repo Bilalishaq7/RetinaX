@@ -324,7 +324,7 @@ impl VisionRecordsContract {
         );
     }
 
-    fn unauthorized<T>(
+    pub(crate) fn unauthorized<T>(
         env: &Env,
         caller: &Address,
         action: &str,
@@ -334,7 +334,7 @@ impl VisionRecordsContract {
         Err(ContractError::Unauthorized)
     }
 
-    fn access_denied<T>(
+    pub(crate) fn access_denied<T>(
         env: &Env,
         caller: &Address,
         action: &str,
@@ -1376,6 +1376,9 @@ impl VisionRecordsContract {
         fundus_photo: OptFundusPhotography,
         clinical_notes: String,
     ) -> Result<(), ContractError> {
+        examination::add_eye_examination(
+            &env,
+            &caller,
         circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
         caller.require_auth();
 
@@ -1414,21 +1417,7 @@ impl VisionRecordsContract {
             retina_imaging,
             fundus_photo,
             clinical_notes,
-        };
-
-        examination::set_examination(&env, &exam, &caller);
-
-        audit::AuditManager::log_event(
-            &env,
-            caller.clone(),
-            "examination.add",
-            soroban_sdk::String::from_str(&env, &record_id.to_string()),
-            "ok",
-        );
-
-        events::publish_examination_added(&env, record_id);
-
-        Ok(())
+        )
     }
 
     /// Update eye examination details using optimistic concurrency control (OCC).
@@ -1448,6 +1437,9 @@ impl VisionRecordsContract {
         clinical_notes: String,
         changed_fields: Vec<FieldChange>,
     ) -> Result<UpdateOutcome, ContractError> {
+        examination::update_examination_versioned(
+            &env,
+            &caller,
         circuit_breaker::require_not_paused(&env, &circuit_breaker::PauseScope::Global)?;
         caller.require_auth();
 
@@ -1479,6 +1471,8 @@ impl VisionRecordsContract {
 
         let exam = EyeExamination {
             record_id,
+            expected_version,
+            node_id,
             visual_acuity,
             iop,
             slit_lamp,
@@ -1486,18 +1480,8 @@ impl VisionRecordsContract {
             retina_imaging,
             fundus_photo,
             clinical_notes,
-        };
-
-        let outcome = examination::versioned_set_examination(
-            &env,
-            &exam,
-            expected_version,
-            node_id,
-            &caller,
-            &changed_fields,
-        );
-
-        Ok(outcome)
+            changed_fields,
+        )
     }
 
     /// Retrieve eye examination details for a record
@@ -1506,6 +1490,7 @@ impl VisionRecordsContract {
         caller: Address,
         record_id: u64,
     ) -> Result<EyeExamination, ContractError> {
+        examination::get_eye_examination(&env, &caller, record_id)
         caller.require_auth();
         let record = Self::get_record_raw(&env, record_id)?;
 
@@ -2067,6 +2052,15 @@ impl VisionRecordsContract {
         insurance_info: Option<InsuranceInfo>,
     ) -> Result<(), ContractError> {
         insurance::update_insurance(&env, &caller, &patient, insurance_info)
+    }
+
+    /// Retrieve insurance information for a patient
+    pub fn get_insurance(
+        env: Env,
+        caller: Address,
+        patient: Address,
+    ) -> Result<OptionalInsuranceInfo, ContractError> {
+        insurance::get_insurance(&env, &caller, &patient)
     }
 
     /// Add medical history reference (IPFS hash or record ID)
@@ -3027,4 +3021,5 @@ mod test_examination_endpoints;
 mod test_profile;
 
 #[cfg(test)]
+mod test_insurance_endpoints;
 mod prescription_tests;

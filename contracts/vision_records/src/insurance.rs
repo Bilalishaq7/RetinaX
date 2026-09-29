@@ -95,3 +95,22 @@ pub fn update_insurance(
     Ok(())
 }
 
+/// Retrieve insurance information for a patient.
+pub fn get_insurance(
+    env: &Env,
+    caller: &Address,
+    patient: &Address,
+) -> Result<OptionalInsuranceInfo, ContractError> {
+    circuit_breaker::require_not_paused(env, &PauseScope::Global)?;
+    caller.require_auth();
+
+    if caller != patient
+        && !crate::rbac::has_permission(env, caller, &crate::rbac::Permission::ReadAnyRecord)
+        && !crate::rbac::has_permission(env, caller, &crate::rbac::Permission::SystemAdmin)
+    {
+        return Err(ContractError::Unauthorized);
+    }
+
+    let profile = get_profile(env, patient)?;
+    Ok(profile.insurance_info)
+}

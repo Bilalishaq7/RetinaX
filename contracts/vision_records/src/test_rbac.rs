@@ -6,6 +6,8 @@
 )]
 
 use super::{
+    ConsentType, CredentialType, Permission, RecordType, Role, SensitivityLevel, TimeRestriction,
+    VisionRecordsContract, VisionRecordsContractClient,
     ConsentType, ContractError, CredentialType, Permission, RecordType, Role,
     SensitivityLevel, TimeRestriction, VisionRecordsContract, VisionRecordsContractClient,
 };
