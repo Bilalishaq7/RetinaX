@@ -583,6 +583,9 @@ fn grant_access(env: Env, patient: Address, doctor: Address, ttl: u64) {
     </div>
   </modal-dialog>
 
+  <!-- Toast Notification Container for Cross-Contract Call Status -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
   <!-- AOS Animation Initialization & Application JS -->
   <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
   <!-- utils.js exposes window.RetinaXUtils for date formatting (used by RepoAvatar + app.js) -->

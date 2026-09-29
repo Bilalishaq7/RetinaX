@@ -27,6 +27,209 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ==========================================================================
+   Toast Notification System for Cross-Contract Calls
+   ========================================================================== */
+const ToastSystem = {
+  container: null,
+
+  init() {
+    this.container = document.getElementById('toast-container');
+    if (!this.container) {
+      this.container = document.createElement('div');
+      this.container.id = 'toast-container';
+      this.container.className = 'toast-container';
+      this.container.setAttribute('aria-live', 'polite');
+      this.container.setAttribute('aria-atomic', 'true');
+      document.body.appendChild(this.container);
+    }
+  },
+
+  show(message, type = 'pending', duration = 5000) {
+    if (!this.container) this.init();
+
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.setAttribute('role', 'alert');
+
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+
+    const msg = document.createElement('span');
+    msg.className = 'toast-message';
+    msg.textContent = message;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-close';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.setAttribute('aria-label', 'Close notification');
+    closeBtn.addEventListener('click', () => this.dismiss(toast));
+
+    if (type === 'pending') {
+      icon.innerHTML = '<span class="loading-spinner"></span>';
+    } else if (type === 'success') {
+      icon.innerHTML = '&#10003;';
+    } else if (type === 'error') {
+      icon.innerHTML = '&#10007;';
+    } else if (type === 'warning') {
+      icon.innerHTML = '&#9888;';
+    }
+
+    toast.appendChild(icon);
+    toast.appendChild(msg);
+    toast.appendChild(closeBtn);
+    this.container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+      toast.classList.add('show');
+    });
+
+    if (duration > 0) {
+      setTimeout(() => this.dismiss(toast), duration);
+    }
+
+    return toast;
+  },
+
+  dismiss(toast) {
+    if (!toast) return;
+    toast.classList.remove('show');
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
+  },
+
+  pending(message) {
+    return this.show(message, 'pending', 0);
+  },
+
+  success(message, duration = 5000) {
+    return this.show(message, 'success', duration);
+  },
+
+  error(message, duration = 8000) {
+    return this.show(message, 'error', duration);
+  },
+
+  warning(message, duration = 6000) {
+    return this.show(message, 'warning', duration);
+  },
+};
+
+/* ==========================================================================
+   Cross-Contract Call Manager with Loading States
+   ========================================================================== */
+const CrossContractCall = {
+  activeCalls: new Map(),
+
+  async execute(callId, operation, options = {}) {
+    const {
+      pendingMsg = 'Transaction pending...',
+      successMsg = 'Transaction confirmed',
+      errorMsg = 'Transaction failed',
+      simulateFailure = false,
+      failureRate = 0,
+    } = options;
+
+    if (this.activeCalls.has(callId)) {
+      return { status: 'pending', message: 'Call already in progress' };
+    }
+
+    const toast = ToastSystem.pending(pendingMsg);
+    this.activeCalls.set(callId, { toast, startTime: Date.now() });
+
+    try {
+      const result = await operation();
+
+      if (simulateFailure || (failureRate > 0 && Math.random() < failureRate)) {
+        throw new Error('Contract call reverted: insufficient permissions or invalid state');
+      }
+
+      this.activeCalls.delete(callId);
+      ToastSystem.dismiss(toast);
+      ToastSystem.success(successMsg);
+
+      return { status: 'success', result };
+    } catch (error) {
+      this.activeCalls.delete(callId);
+      ToastSystem.dismiss(toast);
+
+      const errorMessage = error.message || String(error);
+      const isPartialFailure = errorMessage.includes('revert') || errorMessage.includes('partial');
+
+      if (isPartialFailure) {
+        ToastSystem.error(`Partial failure: ${errorMessage}. Some state may have been updated.`);
+      } else {
+        ToastSystem.error(`${errorMsg}: ${errorMessage}`);
+      }
+
+      return { status: 'error', error: errorMessage, isPartialFailure };
+    }
+  },
+
+  isActive(callId) {
+    return this.activeCalls.has(callId);
+  },
+
+  cancel(callId) {
+    const call = this.activeCalls.get(callId);
+    if (call) {
+      ToastSystem.dismiss(call.toast);
+      this.activeCalls.delete(callId);
+      return true;
+    }
+    return false;
+  }
+};
+
+/* ==========================================================================
+   Button Loading State Helper
+   ========================================================================== */
+function setButtonLoading(button, loading, loadingText = 'Processing...') {
+  if (!button) return;
+
+  if (loading) {
+    button.classList.add('btn-loading');
+    button.dataset.originalText = button.textContent;
+    button.innerHTML = `<span class="btn-text">${loadingText}</span>`;
+    button.disabled = true;
+  } else {
+    button.classList.remove('btn-loading');
+    if (button.dataset.originalText) {
+      button.textContent = button.dataset.originalText;
+    }
+    button.disabled = false;
+  }
+}
+
+/* ==========================================================================
+   Cross-Contract Status Indicator Helper
+   ========================================================================== */
+function showCCStatus(containerId, status, message) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const statusClass = `cc-status-${status}`;
+  const statusLabel = status === 'pending' ? 'PENDING' : status === 'success' ? 'CONFIRMED' : 'FAILED';
+
+  container.className = `cc-status ${statusClass}`;
+  container.innerHTML = `
+    <span class="cc-status-label">${statusLabel}</span>
+    <span class="cc-status-message">${message}</span>
+    ${status === 'pending' ? '<span class="loading-spinner"></span>' : ''}
+  `;
+  container.style.display = 'flex';
+}
+
+function hideCCStatus(containerId) {
+  const container = document.getElementById(containerId);
+  if (container) {
+    container.style.display = 'none';
+  }
+}
+
+/* ==========================================================================
    GSAP Mega Animation Timelines
    ========================================================================== */
 function initGSAPAnimations() {
@@ -151,20 +354,28 @@ function initRBACSimulator() {
   }
 
   if (grantBtn) {
-    grantBtn.closest('form').addEventListener('submit', (e) => {
+    grantBtn.closest('form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      grantBtn.textContent = '⚡ Executing Soroban require_auth()...';
-      grantBtn.style.opacity = '0.7';
+      setButtonLoading(grantBtn, true, 'Executing Soroban require_auth()...');
 
-      setTimeout(() => {
-        grantBtn.textContent = '✅ Access Granted On-Chain!';
-        grantBtn.style.opacity = '1';
+      const result = await CrossContractCall.execute('rbac-grant', async () => {
+        await new Promise(resolve => setTimeout(resolve, 1200));
         updateRBACPreview(true);
+        return { granted: true };
+      }, {
+        pendingMsg: 'Transaction Pending: Submitting access grant to Soroban...',
+        successMsg: 'Access Granted On-Chain — Transaction Confirmed',
+        errorMsg: 'Access Grant Failed',
+      });
 
+      setButtonLoading(grantBtn, false);
+
+      if (result.status === 'success') {
+        grantBtn.textContent = '✅ Access Granted On-Chain!';
         setTimeout(() => {
           grantBtn.textContent = 'Execute Soroban Auth';
         }, 2500);
-      }, 700);
+      }
     });
   }
 
@@ -219,18 +430,28 @@ function initZKSimulator() {
   }
 
   if (genZkBtn) {
-    genZkBtn.closest('form').addEventListener('submit', (e) => {
+    genZkBtn.closest('form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      genZkBtn.textContent = '🛡️ Generating Groth16 Proof...';
+      setButtonLoading(genZkBtn, true, 'Generating Groth16 Proof...');
 
-      setTimeout(() => {
-        genZkBtn.textContent = '✅ Proof Verified Valid!';
+      const result = await CrossContractCall.execute('zk-proof', async () => {
+        await new Promise(resolve => setTimeout(resolve, 1500));
         updateZKPreview(true);
+        return { verified: true };
+      }, {
+        pendingMsg: 'Transaction Pending: Generating & verifying ZK proof on-chain...',
+        successMsg: 'Proof Verified Valid — On-Chain Confirmation Received',
+        errorMsg: 'ZK Proof Verification Failed',
+      });
 
+      setButtonLoading(genZkBtn, false);
+
+      if (result.status === 'success') {
+        genZkBtn.textContent = '✅ Proof Verified Valid!';
         setTimeout(() => {
           genZkBtn.textContent = 'Generate Groth16 zk-SNARK';
         }, 2500);
-      }, 800);
+      }
     });
   }
 
@@ -262,14 +483,13 @@ function initAISimulator() {
   const previewAiCode = document.getElementById('preview-ai-code');
 
   if (testAiBtn) {
-    testAiBtn.closest('form').addEventListener('submit', (e) => {
+    testAiBtn.closest('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const status = aiStatusSelect ? aiStatusSelect.value : 'healthy';
+      setButtonLoading(testAiBtn, true, 'Evaluating Diagnostic Oracles...');
 
-      testAiBtn.textContent = '🤖 Evaluating Diagnostic Oracles...';
-
-      setTimeout(() => {
-        testAiBtn.textContent = 'Execute Diagnostic Check';
+      const result = await CrossContractCall.execute('ai-diagnostic', async () => {
+        await new Promise(resolve => setTimeout(resolve, 1800));
 
         if (status === 'timeout') {
           if (previewAiCode) {
@@ -289,7 +509,19 @@ function initAISimulator() {
 [EVENT_EMITTED] ProviderStatusChecked(Active, Weight: 100)`;
           }
         }
-      }, 600);
+        return { status };
+      }, {
+        pendingMsg: 'Transaction Pending: AI oracle cross-contract call in progress...',
+        successMsg: 'Diagnostic Complete — AI Oracle Response Confirmed',
+        errorMsg: 'AI Oracle Call Failed',
+        simulateFailure: status === 'timeout',
+      });
+
+      setButtonLoading(testAiBtn, false);
+
+      if (result.status === 'error' && result.isPartialFailure) {
+        ToastSystem.warning('Partial failure: Primary oracle timed out, but failover succeeded.');
+      }
     });
   }
 }
@@ -303,14 +535,14 @@ function initFHIRSimulator() {
   const previewFhirCode = document.getElementById('preview-fhir-code');
 
   if (convertFhirBtn) {
-    convertFhirBtn.closest('form').addEventListener('submit', (e) => {
+    convertFhirBtn.closest('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const type = fhirTypeSelect ? fhirTypeSelect.value : 'refraction';
+      setButtonLoading(convertFhirBtn, true, 'Mapping to FHIR v4 JSON...');
 
-      convertFhirBtn.textContent = '🏥 Mapping to FHIR v4 JSON...';
+      const result = await CrossContractCall.execute('fhir-convert', async () => {
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-      setTimeout(() => {
-        convertFhirBtn.textContent = 'Generate FHIR v4 Payload';
         const fhirEffectiveDate =
           typeof window !== 'undefined' && window.RetinaXUtils && window.RetinaXUtils.formatFHIRDate
             ? window.RetinaXUtils.formatFHIRDate(new Date())
@@ -355,7 +587,14 @@ function initFHIRSimulator() {
 }`;
           }
         }
-      }, 500);
+        return { type };
+      }, {
+        pendingMsg: 'Transaction Pending: FHIR v4 converter cross-contract call...',
+        successMsg: 'FHIR v4 Payload Generated — Contract Response Confirmed',
+        errorMsg: 'FHIR Conversion Failed',
+      });
+
+      setButtonLoading(convertFhirBtn, false);
     });
   }
 }
@@ -372,29 +611,35 @@ function initDataFetchSimulator() {
   const fetchStatusIndicator = document.getElementById('fetch-status-indicator');
 
   if (fetchBtn) {
-    fetchBtn.closest('form').addEventListener('submit', (e) => {
+    fetchBtn.closest('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       // 1. Hide idle and result, show placeholder
       if (fetchIdle) fetchIdle.style.display = 'none';
       if (fetchResult) fetchResult.style.display = 'none';
       if (fetchPlaceholder) fetchPlaceholder.style.display = 'flex';
 
-      fetchBtn.textContent = 'Fetching from IPFS...';
-      fetchBtn.disabled = true;
-      fetchBtn.style.opacity = '0.7';
+      setButtonLoading(fetchBtn, true, 'Fetching from IPFS...');
 
       if (fetchStatusLabel) fetchStatusLabel.textContent = 'DATA_RETRIEVAL IN_PROGRESS';
       if (fetchStatusIndicator) fetchStatusIndicator.textContent = 'FETCHING_CID';
 
-      // 2. Simulate network delay (e.g. 2.5 seconds)
-      setTimeout(() => {
+      // 2. Simulate network delay with cross-contract call tracking
+      const result = await CrossContractCall.execute('data-fetch', async () => {
+        await new Promise(resolve => setTimeout(resolve, 2500));
+        return { fetched: true };
+      }, {
+        pendingMsg: 'Transaction Pending: Fetching encrypted data from decentralized storage...',
+        successMsg: 'Clinical Data Retrieved — Decryption Complete',
+        errorMsg: 'Data Fetch Failed',
+        failureRate: 0.1,
+      });
+
+      setButtonLoading(fetchBtn, false);
+
+      if (result.status === 'success') {
         // 3. Hide placeholder, show result
         if (fetchPlaceholder) fetchPlaceholder.style.display = 'none';
         if (fetchResult) fetchResult.style.display = 'block';
-
-        fetchBtn.textContent = 'Fetch Clinical Data';
-        fetchBtn.disabled = false;
-        fetchBtn.style.opacity = '1';
 
         if (fetchStatusLabel) fetchStatusLabel.textContent = 'DATA_RETRIEVAL SUCCESS';
         if (fetchStatusIndicator) fetchStatusIndicator.textContent = 'DECRYPTED_PAYLOAD';
@@ -406,7 +651,18 @@ function initDataFetchSimulator() {
             { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
           );
         }
-      }, 2500);
+      } else {
+        // Handle partial failure gracefully
+        if (fetchPlaceholder) fetchPlaceholder.style.display = 'none';
+        if (fetchIdle) fetchIdle.style.display = 'block';
+
+        if (fetchStatusLabel) fetchStatusLabel.textContent = 'DATA_RETRIEVAL FAILED';
+        if (fetchStatusIndicator) fetchStatusIndicator.textContent = 'RETRY_AVAILABLE';
+
+        if (result.isPartialFailure) {
+          ToastSystem.warning('Partial data retrieved: Some records may be incomplete. Retry recommended.');
+        }
+      }
     });
   }
 }
