@@ -169,6 +169,7 @@ impl IdentityContract {
         caller.require_auth();
         let result = recovery::execute_recovery(&env, &owner);
         if let Ok(ref new_addr) = result {
+            Self::migrate_bound_credentials(&env, &owner, new_addr);
             events::emit_recovery_executed(&env, owner.clone(), new_addr.clone());
             events::emit_owner_status_changed(&env, owner, false);
             events::emit_owner_status_changed(&env, new_addr.clone(), true);
@@ -480,7 +481,7 @@ impl IdentityContract {
         expires_at: u64,
     ) -> Result<bool, CredentialError> {
         user.require_auth();
-        credential::verify_zk_credential(
+        let result = credential::verify_zk_credential(
             &env,
             &user,
             resource_id,
@@ -490,7 +491,11 @@ impl IdentityContract {
             public_inputs,
             expires_at,
             0, // Default nonce; caller should set appropriately for replay protection
-        )
+        );
+        if let Ok(verified) = result {
+            events::emit_zk_credential_verified(&env, user, verified);
+        }
+        result
     }
 
     // ── Credential holder binding ────────────────────────────────────────────
@@ -580,6 +585,27 @@ impl IdentityContract {
     }
 
     // ── Internal helpers ─────────────────────────────────────────────────────
+
+    /// Move credential bindings from a recovered identity to its new address.
+    fn migrate_bound_credentials(env: &Env, from: &Address, to: &Address) {
+        let from_key = (Symbol::new(env, HOLDER_BIND_PREFIX), from.clone());
+        let creds: Option<Vec<BytesN<32>>> = env.storage().persistent().get(&from_key);
+        if let Some(creds) = creds {
+            let to_key = (Symbol::new(env, HOLDER_BIND_PREFIX), to.clone());
+            let mut merged: Vec<BytesN<32>> = env
+                .storage()
+                .persistent()
+                .get(&to_key)
+                .unwrap_or_else(|| Vec::new(env));
+            for cred in creds.iter() {
+                if !merged.contains(&cred) {
+                    merged.push_back(cred);
+                }
+            }
+            env.storage().persistent().set(&to_key, &merged);
+            env.storage().persistent().remove(&from_key);
+        }
+    }
 
     fn require_active_owner(env: &Env, caller: &Address) -> Result<(), RecoveryError> {
         if !recovery::is_owner_active(env, caller) {

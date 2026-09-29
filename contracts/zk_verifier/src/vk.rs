@@ -108,5 +108,3 @@ pub struct VerificationKey {
     /// for accumulating public inputs $x_1, ..., x_l$ during verification.
     pub ic: soroban_sdk::Vec<G1Point>,
 }
-
-

@@ -28,6 +28,7 @@ use soroban_sdk::{BytesN, Env, Vec};
 ///   - Component validation: $\mathcal{O}(L)$ where $L = \text{len}(public\_inputs)$.
 ///   - Verification evaluation: $\mathcal{O}(L + K)$ where $K$ is the number of polynomial commitments.
 /// - **Space Complexity**: $\mathcal{O}(1)$ auxiliary memory footprint.
+#[derive(Clone, Debug)]
 pub struct PlonkVerifier;
 
 impl ZkVerifier for PlonkVerifier {

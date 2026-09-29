@@ -68,7 +68,7 @@ pub fn update_insurance(
     }
 
     profile.insurance_info = match insurance_info {
-        Some(info) => OptionalInsuranceInfo::Some(info),
+        Some(ref info) => OptionalInsuranceInfo::Some(info.clone()),
         None => OptionalInsuranceInfo::None,
     };
     profile.updated_at = env.ledger().timestamp();
@@ -76,7 +76,22 @@ pub fn update_insurance(
     env.storage()
         .persistent()
         .set(&profile_storage_key(patient), &profile);
+
     events::publish_profile_updated(env, patient.clone());
+
+    if let Some(info) = insurance_info {
+        events::publish_insurance_updated(
+            env,
+            patient.clone(),
+            caller.clone(),
+            info.provider_hash,
+            info.policy_id_hash,
+            info.group_id_hash,
+        );
+    } else {
+        events::publish_insurance_cleared(env, patient.clone(), caller.clone());
+    }
 
     Ok(())
 }
+
