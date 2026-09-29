@@ -133,12 +133,12 @@ function initDemoTabs() {
     const tab = tabs[index];
     if (!tab) return;
 
-    tabs.forEach(t => {
+    tabs.forEach((t) => {
       t.classList.remove('active');
       t.setAttribute('aria-selected', 'false');
       t.setAttribute('tabindex', '-1');
     });
-    panels.forEach(p => {
+    panels.forEach((p) => {
       p.classList.remove('active');
       p.setAttribute('hidden', '');
     });
@@ -149,12 +149,16 @@ function initDemoTabs() {
 
     const targetId = `panel-${tab.dataset.tab}`;
     const targetPanel = document.getElementById(targetId);
-    
+
     if (targetPanel) {
       targetPanel.classList.add('active');
       targetPanel.removeAttribute('hidden');
       if (typeof gsap !== 'undefined') {
-        gsap.fromTo(targetPanel, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+        gsap.fromTo(
+          targetPanel,
+          { opacity: 0, y: 10 },
+          { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
+        );
       }
     }
   }
@@ -668,40 +672,40 @@ function initNavigationA11y() {
   if (!navLinks.length) return;
 
   // Click handler to set aria-current="page"
-  navLinks.forEach(link => {
+  navLinks.forEach((link) => {
     link.addEventListener('click', () => {
-      navLinks.forEach(l => l.removeAttribute('aria-current'));
+      navLinks.forEach((l) => l.removeAttribute('aria-current'));
       link.setAttribute('aria-current', 'page');
     });
   });
 
   // Track active section on scroll
   const sectionIds = ['overview', 'privacy', 'ai-oracle', 'demo', 'contracts'];
-  const sections = sectionIds
-    .map(id => document.getElementById(id))
-    .filter(Boolean);
+  const sections = sectionIds.map((id) => document.getElementById(id)).filter(Boolean);
 
   if ('IntersectionObserver' in window && sections.length) {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const currentId = entry.target.id;
-          navLinks.forEach(link => {
-            const href = link.getAttribute('href');
-            if (href === `#${currentId}`) {
-              link.setAttribute('aria-current', 'page');
-            } else {
-              link.removeAttribute('aria-current');
-            }
-          });
-        }
-      });
-    }, {
-      rootMargin: '-20% 0px -70% 0px',
-      threshold: 0
-    });
+    const observer = new window.IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const currentId = entry.target.id;
+            navLinks.forEach((link) => {
+              const href = link.getAttribute('href');
+              if (href === `#${currentId}`) {
+                link.setAttribute('aria-current', 'page');
+              } else {
+                link.removeAttribute('aria-current');
+              }
+            });
+          }
+        });
+      },
+      {
+        rootMargin: '-20% 0px -70% 0px',
+        threshold: 0,
+      }
+    );
 
-    sections.forEach(sec => observer.observe(sec));
+    sections.forEach((sec) => observer.observe(sec));
   }
 }
-
