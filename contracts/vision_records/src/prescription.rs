@@ -1,9 +1,65 @@
+//! Standalone prescription domain module.
+//!
+//! Owns the prescription data types, storage, patient history, verification,
+//! OCC-versioned updates, lineage and lifecycle state-machine integration.
+//! Contract entry points in `lib.rs` delegate all prescription-specific logic
+//! to this module so it can be reasoned about (and tested) in isolation.
+
 use soroban_sdk::{contracttype, Address, Env, String, Vec};
 use teye_common::concurrency::{self, FieldChange, UpdateOutcome, VersionStamp};
 use teye_common::lineage::{self, RelationshipKind};
 use teye_common::state_machine::{
     self, EntityKind, LifecycleState, TransitionContext, TransitionRecord,
 };
+
+const TTL_THRESHOLD: u32 = 5_184_000;
+const TTL_EXTEND_TO: u32 = 10_368_000;
+
+/// Standard validity window (1 year) applied to prescriptions created through
+/// the contract's two-phase commit endpoint.
+pub const STANDARD_EXPIRY_SECONDS: u64 = 31_536_000;
+
+/// Storage key for the canonical prescription record persisted by the
+/// contract's two-phase commit endpoint.
+pub fn prescription_data_key(id: u64) -> (soroban_sdk::Symbol, u64) {
+    (soroban_sdk::symbol_short!("RX_DATA"), id)
+}
+
+/// Builds a standalone glasses prescription from a two-phase prepare payload.
+///
+/// Both eyes mirror the provided refraction data and contact-lens data is
+/// absent; the record starts unverified with an empty metadata hash.
+pub fn build_standalone_glasses(
+    env: &Env,
+    id: u64,
+    patient: &Address,
+    provider: &Address,
+    data: &PrescriptionData,
+    issued_at: u64,
+) -> Prescription {
+    Prescription {
+        id,
+        patient: patient.clone(),
+        provider: provider.clone(),
+        lens_type: LensType::Glasses,
+        left_eye: data.clone(),
+        right_eye: data.clone(),
+        contact_data: OptionalContactLensData::None,
+        issued_at,
+        expires_at: issued_at.saturating_add(STANDARD_EXPIRY_SECONDS),
+        verified: false,
+        metadata_hash: String::from_str(env, ""),
+    }
+}
+
+/// Persists the canonical prescription record under its dedicated key.
+pub fn store(env: &Env, prescription: &Prescription) {
+    let key = prescription_data_key(prescription.id);
+    env.storage().persistent().set(&key, prescription);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, TTL_THRESHOLD, TTL_EXTEND_TO);
+}
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -111,7 +167,7 @@ pub fn save_prescription(env: &Env, prescription: &Prescription, exam_record_id:
         );
     }
 
-    let _ = state_machine::apply_transition(
+    if let Err(_e) = state_machine::apply_transition(
         env,
         0,
         &EntityKind::Prescription,
@@ -125,6 +181,25 @@ pub fn save_prescription(env: &Env, prescription: &Prescription, exam_record_id:
             expires_at: prescription.expires_at,
             prerequisites_met: true,
         },
+    ) {
+        return;
+    }
+
+    crate::events::publish_prescription_created(
+        env,
+        prescription.id,
+        prescription.patient.clone(),
+        prescription.provider.clone(),
+        prescription.issued_at,
+        prescription.expires_at,
+        exam_record_id,
+    );
+    crate::events::publish_prescription_state_transition(
+        env,
+        prescription.id,
+        LifecycleState::Prescription(state_machine::PrescriptionState::Created),
+        LifecycleState::Prescription(state_machine::PrescriptionState::Created),
+        prescription.provider.clone(),
     );
 }
 
@@ -147,6 +222,7 @@ pub fn verify_prescription(env: &Env, id: u64, verifier: Address) -> bool {
         rx.verified = true;
         let key = (soroban_sdk::symbol_short!("RX"), id);
         env.storage().persistent().set(&key, &rx);
+        crate::events::publish_prescription_verified(env, id, rx.patient.clone(), verifier);
         return true;
     }
     false
@@ -178,7 +254,7 @@ pub fn versioned_save_prescription(
     );
 
     match &outcome {
-        UpdateOutcome::Applied(_) | UpdateOutcome::Merged(_) => {
+        UpdateOutcome::Applied(version) | UpdateOutcome::Merged(version) => {
             let key = (soroban_sdk::symbol_short!("RX"), prescription.id);
             env.storage().persistent().set(&key, prescription);
             concurrency::save_field_snapshot(env, prescription.id, changed_fields);
@@ -191,6 +267,12 @@ pub fn versioned_save_prescription(
                 RelationshipKind::ModifiedBy,
                 provider.clone(),
                 None,
+            );
+            crate::events::publish_prescription_updated(
+                env,
+                prescription.id,
+                provider.clone(),
+                version.logical_clock,
             );
         }
         UpdateOutcome::Conflicted(_) => {
@@ -212,5 +294,14 @@ pub fn transition_prescription_state(
     to_state: LifecycleState,
     ctx: TransitionContext,
 ) -> Result<TransitionRecord, state_machine::StateMachineError> {
-    state_machine::apply_transition(env, 0, &EntityKind::Prescription, id, to_state, ctx)
+    let actor = ctx.actor.clone();
+    let record = state_machine::apply_transition(env, 0, &EntityKind::Prescription, id, to_state, ctx)?;
+    crate::events::publish_prescription_state_transition(
+        env,
+        id,
+        record.from_state.clone(),
+        record.to_state.clone(),
+        actor,
+    );
+    Ok(record)
 }

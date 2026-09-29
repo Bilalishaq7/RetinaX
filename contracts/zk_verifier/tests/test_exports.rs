@@ -2,6 +2,9 @@
 //! This test ensures the public API is complete for external usage
 
 #![cfg(test)]
+// Imports are intentionally unused: this suite exists to assert, at compile
+// time, that every public item is reachable from the documented paths.
+#![allow(unused_imports)]
 
 // Test that all types can be imported from the root
 use zk_verifier::{AccessRequest, ContractError, ZkVerifierContract, ZkVerifierContractClient};
