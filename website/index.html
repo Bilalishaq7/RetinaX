@@ -26,34 +26,38 @@
   <link rel="stylesheet" href="components/repo-avatar.css">
 </head>
 <body>
+  <!-- Skip to Main Content Link for Keyboard & Screen Reader Users -->
+  <a href="#overview" class="skip-link">Skip to main content</a>
 
   <!-- Header Navigation -->
-  <header class="navbar">
+  <header class="navbar" role="banner">
     <div class="container nav-container">
-      <a href="#" class="brand-logo">
-        <img src="assets/logo.svg" alt="RetinaX Logo" class="logo-img">
+      <a href="#" class="brand-logo" aria-label="RetinaX Protocol Home">
+        <img src="assets/logo.jpg" alt="RetinaX Logo" class="logo-img">
         <span class="brand-text">RetinaX</span>
-        <span class="brand-badge">Soroban v25</span>
+        <span class="brand-badge" aria-label="Protocol Version Soroban v23">Soroban v23</span>
       </a>
 
-      <ul class="nav-links">
-        <li><a href="#overview" class="nav-link">Overview</a></li>
-        <li><a href="#privacy" class="nav-link">ZK Privacy</a></li>
-        <li><a href="#ai-oracle" class="nav-link">AI Oracle</a></li>
-        <li><a href="#demo" class="nav-link">Playground</a></li>
-        <li><a href="#contracts" class="nav-link">Contracts</a></li>
-      </ul>
+      <nav class="nav-menu" aria-label="Main Navigation">
+        <ul class="nav-links" role="menubar">
+          <li role="none"><a href="#overview" class="nav-link" role="menuitem" aria-label="Overview section" aria-current="page">Overview</a></li>
+          <li role="none"><a href="#privacy" class="nav-link" role="menuitem" aria-label="ZK Privacy section">ZK Privacy</a></li>
+          <li role="none"><a href="#ai-oracle" class="nav-link" role="menuitem" aria-label="AI Oracle section">AI Oracle</a></li>
+          <li role="none"><a href="#demo" class="nav-link" role="menuitem" aria-label="Playground section">Playground</a></li>
+          <li role="none"><a href="#contracts" class="nav-link" role="menuitem" aria-label="Contracts section">Contracts</a></li>
+        </ul>
+      </nav>
 
       <div class="nav-actions">
-        <div class="network-pill">
-          <span class="status-dot"></span>
+        <div class="network-pill" role="status" aria-label="Network status: Stellar Testnet">
+          <span class="status-dot" aria-hidden="true"></span>
           <span>Stellar Testnet</span>
         </div>
-        <button class="btn btn-primary" id="btn-connect-wallet" style="padding: 0.5rem 1rem;">
+        <button class="btn btn-primary" id="btn-connect-wallet" style="padding: 0.5rem 1rem;" aria-label="Connect Stellar Wallet" aria-haspopup="dialog">
           Connect Wallet
         </button>
-        <a href="https://github.com/RetinaX-Org/RetinaX" target="_blank" class="btn btn-secondary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        <a href="https://github.com/RetinaX-Org/RetinaX" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" aria-label="View RetinaX on GitHub (opens in new tab)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
           GitHub Org
         </a>
       </div>
@@ -205,12 +209,12 @@
       </div>
 
       <div class="demo-box" data-aos="fade-up" data-aos-delay="100">
-        <div class="demo-nav">
-          <button class="demo-tab-btn active" data-tab="rbac">🔑 1. Access Control</button>
-          <button class="demo-tab-btn" data-tab="zk">🛡️ 2. ZK Proof Generator</button>
-          <button class="demo-tab-btn" data-tab="ai">🤖 3. AI Oracle Rotation</button>
-          <button class="demo-tab-btn" data-tab="fhir">🏥 4. FHIR v4 Converter</button>
-          <button class="demo-tab-btn" data-tab="fetch">📊 5. Data Fetching</button>
+        <div class="demo-nav" role="tablist" aria-label="Interactive Protocol Playground Modules">
+          <button class="demo-tab-btn active" data-tab="rbac" role="tab" id="tab-rbac" aria-selected="true" aria-controls="panel-rbac" aria-label="Access Control Module">🔑 1. Access Control</button>
+          <button class="demo-tab-btn" data-tab="zk" role="tab" id="tab-zk" aria-selected="false" aria-controls="panel-zk" aria-label="Zero-Knowledge Proof Generator Module">🛡️ 2. ZK Proof Generator</button>
+          <button class="demo-tab-btn" data-tab="ai" role="tab" id="tab-ai" aria-selected="false" aria-controls="panel-ai" aria-label="AI Oracle Rotation Module">🤖 3. AI Oracle Rotation</button>
+          <button class="demo-tab-btn" data-tab="fhir" role="tab" id="tab-fhir" aria-selected="false" aria-controls="panel-fhir" aria-label="FHIR v4 Converter Module">🏥 4. FHIR v4 Converter</button>
+          <button class="demo-tab-btn" data-tab="fetch" role="tab" id="tab-fetch" aria-selected="false" aria-controls="panel-fetch" aria-label="Data Fetching Module">📊 5. Data Fetching</button>
         </div>
 
         <div class="demo-body">
@@ -504,44 +508,44 @@ fn grant_access(env: Env, patient: Address, doctor: Address, ttl: u64) {
   </section>
 
   <!-- Footer -->
-  <footer class="footer">
+  <footer class="footer" role="contentinfo">
     <div class="container">
       <div class="footer-grid">
         <div class="footer-brand">
-          <a href="#" class="brand-logo">
+          <a href="#" class="brand-logo" aria-label="RetinaX Protocol Home">
             <img src="assets/logo.jpg" alt="RetinaX Logo" class="logo-img">
             <span class="brand-text">RetinaX</span>
           </a>
           <p>Decentralized, privacy-preserving vision care records protocol and AI diagnostic verification ecosystem on Stellar.</p>
         </div>
 
-        <div class="footer-col">
+        <nav class="footer-col" aria-label="Protocol navigation">
           <h4>Protocol</h4>
           <ul class="footer-links">
-            <li><a href="#overview">Overview</a></li>
-            <li><a href="#privacy">ZK Privacy</a></li>
-            <li><a href="#ai-oracle">AI Oracle</a></li>
-            <li><a href="#demo">Playground</a></li>
+            <li><a href="#overview" aria-label="Navigate to Overview section">Overview</a></li>
+            <li><a href="#privacy" aria-label="Navigate to ZK Privacy section">ZK Privacy</a></li>
+            <li><a href="#ai-oracle" aria-label="Navigate to AI Oracle section">AI Oracle</a></li>
+            <li><a href="#demo" aria-label="Navigate to Playground Demo section">Playground</a></li>
           </ul>
-        </div>
+        </nav>
 
-        <div class="footer-col">
+        <nav class="footer-col" aria-label="Ecosystem links">
           <h4>Ecosystem</h4>
           <ul class="footer-links">
-            <li><a href="https://github.com/RetinaX-Org/RetinaX" target="_blank">GitHub Organization</a></li>
-            <li><a href="https://grantfox.xyz" target="_blank">GrantFox Grants</a></li>
-            <li><a href="https://soroban.stellar.org/" target="_blank">Stellar Soroban</a></li>
+            <li><a href="https://github.com/RetinaX-Org/RetinaX" target="_blank" rel="noopener noreferrer" aria-label="GitHub Organization (opens in new tab)">GitHub Organization</a></li>
+            <li><a href="https://grantfox.xyz" target="_blank" rel="noopener noreferrer" aria-label="GrantFox Grants (opens in new tab)">GrantFox Grants</a></li>
+            <li><a href="https://soroban.stellar.org/" target="_blank" rel="noopener noreferrer" aria-label="Stellar Soroban Documentation (opens in new tab)">Stellar Soroban</a></li>
           </ul>
-        </div>
+        </nav>
 
-        <div class="footer-col">
+        <nav class="footer-col" aria-label="Open Source links">
           <h4>Open Source</h4>
           <ul class="footer-links">
-            <li><a href="https://github.com/RetinaX-Org/RetinaX/blob/main/LICENSE" target="_blank">MIT License</a></li>
-            <li><a href="https://github.com/RetinaX-Org/RetinaX/blob/main/CONTRIBUTING.md" target="_blank">Contributing Guide</a></li>
-            <li><a href="https://github.com/RetinaX-Org/RetinaX/issues" target="_blank">Roadmap Issues</a></li>
+            <li><a href="https://github.com/RetinaX-Org/RetinaX/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" aria-label="MIT License (opens in new tab)">MIT License</a></li>
+            <li><a href="https://github.com/RetinaX-Org/RetinaX/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener noreferrer" aria-label="Contributing Guide (opens in new tab)">Contributing Guide</a></li>
+            <li><a href="https://github.com/RetinaX-Org/RetinaX/issues" target="_blank" rel="noopener noreferrer" aria-label="Roadmap and Issues on GitHub (opens in new tab)">Roadmap Issues</a></li>
           </ul>
-        </div>
+        </nav>
       </div>
 
       <div class="footer-bottom">

@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initGSAPAnimations();
 
   // 3. Initialize Interactive Simulators
+  initNavigationA11y();
   initDemoTabs();
   initRBACSimulator();
   initZKSimulator();
@@ -100,30 +101,67 @@ function initGSAPAnimations() {
    Tab Switching Logic
    ========================================================================== */
 function initDemoTabs() {
-  const tabs = document.querySelectorAll('.demo-tab-btn');
+  const tabs = Array.from(document.querySelectorAll('.demo-tab-btn'));
   const panels = document.querySelectorAll('.demo-tab-panel');
 
-  tabs.forEach((tab) => {
+  tabs.forEach((tab, index) => {
     tab.addEventListener('click', () => {
-      tabs.forEach((t) => t.classList.remove('active'));
-      panels.forEach((p) => p.classList.remove('active'));
+      activateTab(index);
+    });
 
-      tab.classList.add('active');
-      const targetId = `panel-${tab.dataset.tab}`;
-      const targetPanel = document.getElementById(targetId);
-
-      if (targetPanel) {
-        targetPanel.classList.add('active');
-        if (typeof gsap !== 'undefined') {
-          gsap.fromTo(
-            targetPanel,
-            { opacity: 0, y: 10 },
-            { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
-          );
-        }
+    // Keyboard accessibility for tablist
+    tab.addEventListener('keydown', (e) => {
+      let newIndex = index;
+      if (e.key === 'ArrowRight') {
+        newIndex = (index + 1) % tabs.length;
+      } else if (e.key === 'ArrowLeft') {
+        newIndex = (index - 1 + tabs.length) % tabs.length;
+      } else if (e.key === 'Home') {
+        newIndex = 0;
+      } else if (e.key === 'End') {
+        newIndex = tabs.length - 1;
+      } else {
+        return;
       }
+      e.preventDefault();
+      tabs[newIndex].focus();
+      activateTab(newIndex);
     });
   });
+
+  function activateTab(index) {
+    const tab = tabs[index];
+    if (!tab) return;
+
+    tabs.forEach((t) => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+      t.setAttribute('tabindex', '-1');
+    });
+    panels.forEach((p) => {
+      p.classList.remove('active');
+      p.setAttribute('hidden', '');
+    });
+
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    tab.setAttribute('tabindex', '0');
+
+    const targetId = `panel-${tab.dataset.tab}`;
+    const targetPanel = document.getElementById(targetId);
+
+    if (targetPanel) {
+      targetPanel.classList.add('active');
+      targetPanel.removeAttribute('hidden');
+      if (typeof gsap !== 'undefined') {
+        gsap.fromTo(
+          targetPanel,
+          { opacity: 0, y: 10 },
+          { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }
+        );
+      }
+    }
+  }
 }
 
 /* ==========================================================================
@@ -624,4 +662,50 @@ function initModal() {
       closeModal();
     }
   });
+}
+
+/* ==========================================================================
+   Site Navigation Accessibility & Active States
+   ========================================================================== */
+function initNavigationA11y() {
+  const navLinks = document.querySelectorAll('.nav-links .nav-link');
+  if (!navLinks.length) return;
+
+  // Click handler to set aria-current="page"
+  navLinks.forEach((link) => {
+    link.addEventListener('click', () => {
+      navLinks.forEach((l) => l.removeAttribute('aria-current'));
+      link.setAttribute('aria-current', 'page');
+    });
+  });
+
+  // Track active section on scroll
+  const sectionIds = ['overview', 'privacy', 'ai-oracle', 'demo', 'contracts'];
+  const sections = sectionIds.map((id) => document.getElementById(id)).filter(Boolean);
+
+  if ('IntersectionObserver' in window && sections.length) {
+    const observer = new window.IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const currentId = entry.target.id;
+            navLinks.forEach((link) => {
+              const href = link.getAttribute('href');
+              if (href === `#${currentId}`) {
+                link.setAttribute('aria-current', 'page');
+              } else {
+                link.removeAttribute('aria-current');
+              }
+            });
+          }
+        });
+      },
+      {
+        rootMargin: '-20% 0px -70% 0px',
+        threshold: 0,
+      }
+    );
+
+    sections.forEach((sec) => observer.observe(sec));
+  }
 }
