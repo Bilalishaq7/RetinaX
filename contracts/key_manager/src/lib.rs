@@ -877,7 +877,7 @@ impl KeyManagerContract {
 
         // Revalidate approvals against the *current* guardian set so that
         // stale approvals are invalidated when guardian membership changes.
-        if threshold == 0 || guardians.len() == 0 {
+        if threshold == 0 || guardians.is_empty() {
             return Err(ContractError::InsufficientApprovals);
         }
 

@@ -31,11 +31,11 @@ fn nonzero32(env: &Env, seed: u8) -> BytesN<32> {
     BytesN::from_array(env, &b)
 }
 
-fn g1(env: &Env, x: BytesN<32>, y: BytesN<32>) -> G1Point {
+fn g1(_env: &Env, x: BytesN<32>, y: BytesN<32>) -> G1Point {
     G1Point { x, y }
 }
 
-fn g2(env: &Env, x0: BytesN<32>, x1: BytesN<32>, y0: BytesN<32>, y1: BytesN<32>) -> G2Point {
+fn g2(_env: &Env, x0: BytesN<32>, x1: BytesN<32>, y0: BytesN<32>, y1: BytesN<32>) -> G2Point {
     G2Point {
         x: (x0, x1),
         y: (y0, y1),
@@ -54,10 +54,10 @@ fn setup_contract(env: &Env) -> (ZkVerifierContractClient<'static>, Address) {
     let nz1 = nonzero32(env, 1);
     let nz2 = nonzero32(env, 2);
     let vk = VerificationKey {
-        alpha: g1(env, nz1.clone(), nz1.clone()),
-        beta: g2(env, nz1.clone(), nz1.clone(), nz2.clone(), nz2.clone()),
-        gamma: g2(env, nz2.clone(), nz2.clone(), nz1.clone(), nz1.clone()),
-        delta: g2(env, nz1.clone(), nz2.clone(), nz2.clone(), nz1.clone()),
+        alpha_g1: g1(env, nz1.clone(), nz1.clone()),
+        beta_g2: g2(env, nz1.clone(), nz1.clone(), nz2.clone(), nz2.clone()),
+        gamma_g2: g2(env, nz2.clone(), nz2.clone(), nz1.clone(), nz1.clone()),
+        delta_g2: g2(env, nz1.clone(), nz2.clone(), nz2.clone(), nz1.clone()),
         ic: Vec::new(env),
     };
     client.set_verification_key(&admin, &vk);
@@ -68,7 +68,8 @@ fn setup_contract(env: &Env) -> (ZkVerifierContractClient<'static>, Address) {
     (client, admin)
 }
 
-/// Creates a valid-looking proof structure (but not cryptographically valid)
+/// Creates a structurally valid proof that the mock Groth16 verifier accepts
+/// (a.x[0]==1, c.x[0]==1) so requests reach the proof-evaluation stage.
 fn create_offchain_proof(env: &Env) -> Proof {
     let nz1 = nonzero32(env, 1);
     let nz2 = nonzero32(env, 2);
@@ -76,9 +77,9 @@ fn create_offchain_proof(env: &Env) -> Proof {
     let nz4 = nonzero32(env, 4);
 
     Proof {
-        a: g1(env, nz1.clone(), nz1),
-        b: g2(env, nz2.clone(), nz2.clone(), nz3.clone(), nz3),
-        c: g1(env, nz4.clone(), nz4),
+        a: g1(env, nz1.clone(), nz1.clone()),
+        b: g2(env, nz2.clone(), nz2.clone(), nz2.clone(), nz2),
+        c: g1(env, nz1.clone(), nz1),
     }
 }
 
