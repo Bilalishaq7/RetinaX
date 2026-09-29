@@ -2892,25 +2892,16 @@ impl VisionRecordsContract {
         let counter_key = symbol_short!("RX_CTR");
         env.storage().instance().set(&counter_key, &rx_id);
 
-        // Create the prescription
-        let prescription = prescription::Prescription {
-            id: rx_id,
-            patient: prep_data.patient.clone(),
-            provider: prep_data.provider.clone(),
-            lens_type: LensType::Glasses,
-            left_eye: prep_data.prescription_data.clone(),
-            right_eye: prep_data.prescription_data.clone(),
-            contact_data: OptionalContactLensData::None,
-            issued_at: prep_data.timestamp,
-            expires_at: prep_data.timestamp.saturating_add(31_536_000),
-            verified: false,
-            metadata_hash: String::from_str(&env, ""),
-        };
-
-        // Store the prescription
-        let key = (symbol_short!("RX_DATA"), rx_id);
-        env.storage().persistent().set(&key, &prescription);
-        extend_ttl_u64_key(&env, &key);
+        // Create and persist the prescription via the prescription module.
+        let prescription = prescription::build_standalone_glasses(
+            &env,
+            rx_id,
+            &prep_data.patient,
+            &prep_data.provider,
+            &prep_data.prescription_data,
+            prep_data.timestamp,
+        );
+        prescription::store(&env, &prescription);
 
         // Add to patient's prescription history and lineage records.
         prescription::save_prescription(&env, &prescription, None);
@@ -2931,6 +2922,12 @@ impl VisionRecordsContract {
     }
 
     // ── Query helpers ─────────────────────────────────────────────────────────
+
+    /// Return total number of prescriptions committed.
+    pub fn get_prescription_count(env: Env) -> u64 {
+        let counter_key = symbol_short!("RX_CTR");
+        env.storage().instance().get(&counter_key).unwrap_or(0)
+    }
 
     /// Return total number of records added.
     pub fn get_record_count(env: Env) -> u64 {
