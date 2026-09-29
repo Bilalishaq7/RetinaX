@@ -1,0 +1,17 @@
+.contract-address-display__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: 0.35rem;
+  background: var(--color-surface, #fff);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.contract-address-display__button:hover,
+.contract-address-display__button:focus-visible { border-color: var(--color-primary, #0f766e); }
+.contract-address-display__value { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.contract-address-display__status { min-width: 3.5rem; color: var(--color-primary, #0f766e); font-size: 0.8rem; }
