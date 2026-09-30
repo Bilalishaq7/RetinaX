@@ -1,7 +1,7 @@
 # Identity Contract Architectural Deep-Dive
 
 ## 1. Overview
-The **Identity Contract** (`contracts/identity`) serves as the core decentralized identity and access registry for the RetinaX system. It manages identity registration, verifiable credential lifecycles, and identity recovery protocols on-chain.
+The Identity Contract (`contracts/identity`) serves as the core decentralized identity and access registry for the RetinaX system. It manages identity registration, verifiable credential lifecycles, and identity recovery protocols on-chain.
 
 ## 2. Core Architecture & Module Breakdown
 
@@ -17,54 +17,25 @@ The identity contract is structured into four primary Rust modules:
 ## 3. Data Model & Key Concepts
 
 ### Identity Registration & State
-- **Identity Identifier (DID)**: Each actor (patient, provider, or system node) is bound to a unique decentralized identifier.
-- **Attributes & Metadata**: Key-value pairs store essential, non-PII identity claims and operational state flags.
+- Identity Identifier (DID): Each actor (patient, provider, or system node) is bound to a unique decentralized identifier.
+- Attributes & Metadata: Key-value pairs store essential, non-PII identity claims and operational state flags.
 
 ### Credential Lifecycle Management (`credential.rs`)
-- **Issuance**: Authorized entities issue cryptographic credentials bound to a target DID.
-- **Revocation List**: On-chain tracking of revoked credential IDs with cryptographic verification support.
-- **Expiration & Validation**: Expiration timestamps and status checks are evaluated on-chain prior to grant execution.
+- Issuance: Authorized entities issue cryptographic credentials bound to a target DID.
+- Revocation List: On-chain tracking of revoked credential IDs with cryptographic verification support.
+- Expiration & Validation: Expiration timestamps and status checks are evaluated on-chain prior to grant execution.
 
 ### Identity Recovery Protocol (`recovery.rs`)
-- **Recovery Guardians**: Users define designated recovery guardians or secondary keys.
-- **Quorum Verification**: Key recovery operations require N-of-M threshold signatures before updating an identity's primary controlling address.
-- **Cooldown & Timelock**: Timelocks prevent hostile recovery takeovers by providing a window for the original controller to veto unauthorized recovery attempts.
+- Recovery Guardians: Users define designated recovery guardians or secondary keys.
+- Quorum Verification: Key recovery operations require N-of-M threshold signatures before updating an identity's primary controlling address.
+- Cooldown & Timelock: Timelocks prevent hostile recovery takeovers by providing a window for the original controller to veto unauthorized recovery attempts.
 
 ## 4. Interaction & Data Flow
-
-[ User / Provider ]
-|
-v
-+-------------------------------------------------------+
-|                 Identity Contract                     |
-|                                                       |
-|  +-------------------------------------------------+  |
-|  |                     lib.rs                      |  |
-|  |   - Identity Registration                       |  |
-|  |   - Main Access & Controller Entrypoints        |  |
-|  +------------------------+------------------------+  |
-|                           |                           |
-|         +-----------------+-----------------+         |
-|         v                                   v         |
-|  +--------------+                   +---------------+ |
-|  |credential.rs |                   |  recovery.rs  | |
-|  | - Issuance   |                   | - Guardians   | |
-|  | - Revocation |                   | - Timelocks   | |
-|  +--------------+                   +---------------+ |
-|         |                                   |         |
-|         +-----------------+-----------------+         |
-|                           |                           |
-|                           v                           |
-|                  +-----------------+                  |
-|                  |    events.rs    |                  |
-|                  +-----------------+                  |
-+-------------------------------------------------------+
-|
-v
-[ On-Chain Event Logs / Indexer ]
-
+1. **User / Provider** interacts with main entrypoints in `lib.rs` to manage identities or access resources.
+2. `lib.rs` validates permissions and routes requests to `credential.rs` (for issuance/revocation checks) or `recovery.rs` (for guardian quorum & timelock processing).
+3. All state transitions emit structured audit events via `events.rs` to be indexed by off-chain indexers.
 
 ## 5. Security & Access Control
-- **Controller Permissions**: Direct updates to identity parameters require valid signature authentication from the registered identity controller.
-- **Guardian Quorum Isolation**: Recovery execution is strictly bounded by guardian consensus logic in `recovery.rs`.
-- **Event Auditing**: All credential status transitions (issuance, revocation, recovery initiation) emit structured events via `events.rs`.
+- Controller Permissions: Direct updates to identity parameters require valid signature authentication from the registered identity controller.
+- Guardian Quorum Isolation: Recovery execution is strictly bounded by guardian consensus logic in `recovery.rs`.
+- Event Auditing: All credential status transitions emit structured events via `events.rs`.
